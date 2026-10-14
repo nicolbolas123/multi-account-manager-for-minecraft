@@ -1,0 +1,44 @@
+# --- Python / virtual environments
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# --- Build outputs (recreate with packaging/build_app.sh)
+build/
+dist/
+*.dmg
+
+# --- Code-signing material: never commit certificates or private keys
+*.p12
+*.pfx
+*.pem
+*.key
+*.cer
+*.certSigningRequest
+*.mobileprovision
+
+# --- Local data, logs and secrets (the app keeps user data in ~/Library, never in the repo)
+*.log
+*.corrupt-*.json
+.env
+.env.*
+settings.json
+playtime.json
+
+# --- Personal notes kept next to the project
+TASK.rtf
+features to be added.rtf
+
+# --- Editors / macOS
+.DS_Store
+.idea/
+.vscode/
+*.swp
