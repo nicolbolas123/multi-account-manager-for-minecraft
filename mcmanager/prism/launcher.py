@@ -21,7 +21,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from mcmanager.bundle import external_env
+from mcmanager.bundle import detached_process_kwargs, external_env
 from mcmanager.paths import logs_dir
 from mcmanager.prism.locator import PrismInstallation
 
@@ -65,9 +65,10 @@ def build_show_command(install: PrismInstallation, instance_id: str) -> list[str
 def spawn_prism(cmd: list[str]) -> subprocess.Popen:
     """Start Prism detached from our process group so it outlives this app.
 
-    Output goes to a log file in our Logs folder for troubleshooting.
+    The command is passed as a list (never through a shell), so paths with spaces need no
+    quoting on either platform. Output goes to a log file in our Logs folder for troubleshooting.
     """
-    log.info("Running: %s", " ".join(cmd))
+    log.info("Running: %s", subprocess.list2cmdline(cmd))
     out_path: Path = logs_dir() / "prism-cli.log"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out = open(out_path, "ab")
@@ -77,8 +78,8 @@ def spawn_prism(cmd: list[str]) -> subprocess.Popen:
             stdin=subprocess.DEVNULL,
             stdout=out,
             stderr=subprocess.STDOUT,
-            start_new_session=True,
             env=external_env(),  # Prism is a Qt app too: don't hand it our bundle's Qt/Python variables
+            **detached_process_kwargs(),
         )
     except OSError as exc:
         raise LaunchError(f"Could not start Prism Launcher: {exc}") from exc

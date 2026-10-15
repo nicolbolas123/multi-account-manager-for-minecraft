@@ -1,7 +1,10 @@
 """Live window capture.
 
-Backends
---------
+The Windows backend (``Win32CaptureBackend``, PrintWindow / screen copy) lives in
+``mcmanager.windows.win32``; ``create_backend`` picks the right one for the platform.
+
+macOS backends
+--------------
 ``ScreenCaptureKitBackend`` (macOS 14+, preferred)
     Apple's supported capture API. Captures a single window even when it is
     covered by other windows, scaled to the requested size by the system.
@@ -21,6 +24,7 @@ from __future__ import annotations
 
 import logging
 import platform
+import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -192,6 +196,15 @@ class ScreenCaptureKitBackend(CaptureBackend):
 
 
 def create_backend(name: str) -> CaptureBackend:
+    """Capture backend for the ``preview.backend`` setting on this platform.
+
+    macOS: ``auto`` | ``screencapturekit`` | ``quartz``. Windows: ``auto``/``printwindow`` |
+    ``screen``; a macOS value (e.g. from settings copied between machines) means automatic.
+    """
+    if sys.platform == "win32":
+        from mcmanager.windows.win32 import Win32CaptureBackend
+
+        return Win32CaptureBackend("screen" if name == "screen" else "printwindow")
     if name == "quartz":
         return QuartzBackend()
     if name == "screencapturekit" or (name == "auto" and ScreenCaptureKitBackend.available()):

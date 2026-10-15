@@ -15,6 +15,7 @@ import dataclasses
 import json
 import logging
 import os
+import sys
 import tempfile
 import time
 import uuid
@@ -174,6 +175,19 @@ def settings_to_dict(settings: AppSettings) -> dict[str, Any]:
     return data
 
 
+def _replace_with_retry(src: str, dst: Path, attempts: int = 10, delay: float = 0.05) -> None:
+    """``os.replace``, retried briefly on Windows, where a virus scanner, search indexer or
+    OneDrive can hold the target open for a moment ("Access is denied" / PermissionError)."""
+    for attempt in range(attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if sys.platform != "win32" or attempt == attempts - 1:
+                raise
+            time.sleep(delay * (attempt + 1))
+
+
 def atomic_write_json(path: Path, data: Any) -> None:
     """Write JSON via a temp file + rename so a crash never leaves a half-written file."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -182,7 +196,7 @@ def atomic_write_json(path: Path, data: Any) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(payload)
-        os.replace(tmp, path)
+        _replace_with_retry(tmp, path)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
         raise

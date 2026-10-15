@@ -21,7 +21,7 @@ import psutil
 from PySide6.QtCore import QPointF, QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QLinearGradient, QPainter
 
-from mcmanager.bundle import fake_client_command
+from mcmanager.bundle import detached_process_kwargs, fake_client_command
 from mcmanager.prism import LaunchRequest, PrismInstallation
 from mcmanager.windows.capture import CaptureBackend, CaptureError, target_size
 from mcmanager.windows.discovery import WindowInfo
@@ -44,7 +44,7 @@ def create_mock_prism(root: Path) -> PrismInstallation:
         inst = instances / name
         (inst / "minecraft" / "logs").mkdir(parents=True, exist_ok=True)
         (inst / "natives").mkdir(exist_ok=True)
-        (inst / "instance.cfg").write_text(f"[General]\nInstanceType=OneSix\nname={name}\n")
+        (inst / "instance.cfg").write_text(f"[General]\nInstanceType=OneSix\nname={name}\n", encoding="utf-8")
         components = [{"uid": "net.minecraft", "version": version}]
         if loader == "Fabric":
             components.append({"uid": "net.fabricmc.fabric-loader", "version": "0.16.0"})
@@ -52,10 +52,10 @@ def create_mock_prism(root: Path) -> PrismInstallation:
             components.append({"uid": "net.minecraftforge", "version": "11.15.1"})
         elif loader == "NeoForge":
             components.append({"uid": "net.neoforged", "version": "47.1.0"})
-        (inst / "mmc-pack.json").write_text(json.dumps({"components": components, "formatVersion": 1}))
+        (inst / "mmc-pack.json").write_text(json.dumps({"components": components, "formatVersion": 1}), encoding="utf-8")
     # Profile names only - the mock never contains credentials.
     accounts = [{"type": "Offline", "profile": {"name": n}, "active": i == 0} for i, n in enumerate(MOCK_ACCOUNTS)]
-    (root / "accounts.json").write_text(json.dumps({"formatVersion": 3, "accounts": accounts}))
+    (root / "accounts.json").write_text(json.dumps({"formatVersion": 3, "accounts": accounts}), encoding="utf-8")
     return PrismInstallation(
         executable=None, app_bundle=None, data_dir=root, instances_dir=instances, version="mock",
     )
@@ -75,7 +75,8 @@ class MockLaunchBackend:
         if request.instance_id == "Mock Crashy":
             cmd += ["--crash-after", "20"]
         return subprocess.Popen(cmd, cwd=inst / "minecraft", env=env, stdin=subprocess.DEVNULL,
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                **detached_process_kwargs(hide_console=True))
 
     def show(self, install: PrismInstallation, instance_id: str) -> None:
         pass  # nothing to show in mock mode

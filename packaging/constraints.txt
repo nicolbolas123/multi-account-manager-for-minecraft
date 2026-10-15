@@ -1,6 +1,8 @@
-# Exact versions used for release builds (both architectures), applied by requirements-build.txt.
-# Every package here ships macOS wheels for both arm64 and x86_64:
-#   PySide6/shiboken6 and PyObjC as universal2 wheels, psutil as separate arm64 / x86_64 wheels.
+# Exact versions used for release builds, applied by requirements-build.txt (macOS) and
+# requirements-windows.txt (Windows). Packages a platform doesn't use are simply not installed.
+# macOS: every package ships wheels for both arm64 and x86_64 (PySide6/shiboken6 and PyObjC as
+#   universal2 wheels, psutil as separate arm64 / x86_64 wheels).
+# Windows (x64, Python 3.14): PySide6/shiboken6, psutil and PyInstaller ship win_amd64 wheels.
 # Before raising a version, check that it still publishes x86_64 macOS wheels (Qt and PyObjC may
 # drop Intel support in future releases), then build and test both architectures (docs/DISTRIBUTING.md).
 PySide6-Essentials==6.12.0
@@ -24,3 +26,7 @@ pytest==9.1.1
 iniconfig==2.3.1
 pluggy==1.6.0
 Pygments==2.21.0
+# Windows-only dependencies of PyInstaller and pytest
+pefile==2024.8.26
+pywin32-ctypes==0.2.3
+colorama==0.4.6

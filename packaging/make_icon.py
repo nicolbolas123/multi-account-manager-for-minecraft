@@ -1,14 +1,18 @@
-"""Generate the app icon: packaging/AppIcon.icns (for the .app) and mcmanager/ui/assets/app-icon.png.
+"""Generate the app icon: packaging/AppIcon.icns (for the .app), packaging/AppIcon.ico (for the
+Windows .exe) and mcmanager/ui/assets/app-icon.png.
 
 A dark rounded tile holding a 2x2 grid of small Minecraft-style "game windows" — one per
 account — in the dashboard's colours. Drawn with Qt so no image editor is needed; rerun after
 changing the design:  python packaging/make_icon.py
+Only the Windows icon:  python packaging/make_icon.py --ico
 """
 
 from __future__ import annotations
 
+import io
 import os
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -16,11 +20,13 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QRectF, Qt  # noqa: E402
+from PySide6.QtCore import QBuffer, QIODevice, QRectF, Qt  # noqa: E402
 from PySide6.QtGui import QColor, QGuiApplication, QImage, QLinearGradient, QPainter, QPainterPath, QPen  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 ICNS = ROOT / "packaging" / "AppIcon.icns"
+ICO = ROOT / "packaging" / "AppIcon.ico"
+ICO_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)
 PNG = ROOT / "mcmanager" / "ui" / "assets" / "app-icon.png"
 
 SKIES = [("#7ec8ff", "#bfe6ff"), ("#f6b26b", "#ffe2a8"), ("#8e7cf0", "#c9bdff"), ("#5fd3c4", "#b9f3ea")]
@@ -83,8 +89,41 @@ def draw(size: int = 1024) -> QImage:
     return img
 
 
+def draw_windows(size: int) -> QImage:
+    """The same design with less margin: Windows icons fill more of their square than macOS's."""
+    full = round(size * 1024 / 872)  # the tile spans 76..948 of 1024 after cropping
+    margin = round(76 * full / 1024)
+    return draw(full).copy(margin, margin, size, size)
+
+
+def png_bytes(img: QImage) -> bytes:
+    buf = QBuffer()
+    buf.open(QIODevice.OpenModeFlag.WriteOnly)
+    img.save(buf, "PNG")
+    return bytes(buf.data())
+
+
+def write_ico(path: Path, images: list[QImage]) -> None:
+    """A multi-size .ico with PNG-compressed entries (supported since Windows Vista)."""
+    blobs = [png_bytes(img) for img in images]
+    out = io.BytesIO()
+    out.write(struct.pack("<HHH", 0, 1, len(images)))  # reserved, type 1 = icon, count
+    offset = 6 + 16 * len(images)
+    for img, blob in zip(images, blobs):
+        w, h = img.width(), img.height()
+        out.write(struct.pack("<BBBBHHII", w % 256, h % 256, 0, 0, 1, 32, len(blob), offset))
+        offset += len(blob)
+    for blob in blobs:
+        out.write(blob)
+    path.write_bytes(out.getvalue())
+
+
 def main() -> int:
     QGuiApplication.instance() or QGuiApplication(sys.argv[:1])
+    write_ico(ICO, [draw_windows(px) for px in ICO_SIZES])
+    if "--ico" in sys.argv[1:]:
+        print("wrote", ICO)
+        return 0
     big = draw(1024)
     PNG.parent.mkdir(parents=True, exist_ok=True)
     big.scaled(512, 512, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation).save(str(PNG))

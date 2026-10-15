@@ -1,5 +1,9 @@
 """macOS privacy permissions used by the app.
 
+Windows has no equivalent: any process may capture and focus the windows of other processes of
+the same user, so on other platforms the checks below report "granted" and the UI hides them
+(see ``mcmanager.system.needs_privacy_permissions``).
+
 * Screen Recording - required to capture window contents (live previews).
 * Accessibility    - optional; lets us un-minimise/raise a specific window and
                      close the game window gracefully. Without it we fall back
@@ -27,12 +31,13 @@ log = logging.getLogger(__name__)
 
 SCREEN_RECORDING_SETTINGS_URL = "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
 ACCESSIBILITY_SETTINGS_URL = "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
-NOTIFICATIONS_SETTINGS_URL = "x-apple.systempreferences:com.apple.Notifications-Settings.extension"
+NOTIFICATIONS_SETTINGS_URL = ("x-apple.systempreferences:com.apple.Notifications-Settings.extension"
+                              if sys.platform == "darwin" else "ms-settings:notifications")
 
 
 def screen_capture_allowed() -> bool:
     if sys.platform != "darwin":
-        return False
+        return True  # no permission needed
     import Quartz
 
     try:
@@ -53,7 +58,7 @@ def request_screen_capture() -> bool:
 
 def accessibility_trusted() -> bool:
     if sys.platform != "darwin":
-        return False
+        return True  # no permission needed
     import ApplicationServices as AS
 
     return bool(AS.AXIsProcessTrusted())

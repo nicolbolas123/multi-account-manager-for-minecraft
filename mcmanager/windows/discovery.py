@@ -1,5 +1,8 @@
 """Discovering the game window that belongs to a process (macOS Quartz window list).
 
+``WindowInfo`` and ``choose_window`` are shared with the Windows implementation
+(``mcmanager.windows.win32``); ``window_id`` is a CGWindowID on macOS and an HWND on Windows.
+
 Listing windows and their owner PIDs does not require Screen Recording
 permission; only window *titles* and *contents* do.
 """
@@ -31,7 +34,7 @@ class WindowInfo:
         return self.width / self.height if self.height else 16 / 9
 
 
-def _choose_window(candidates: list[WindowInfo]) -> WindowInfo | None:
+def choose_window(candidates: list[WindowInfo]) -> WindowInfo | None:
     usable = [w for w in candidates if w.width >= MIN_GAME_WINDOW_SIZE and w.height >= MIN_GAME_WINDOW_SIZE]
     if not usable:
         return None
@@ -71,7 +74,7 @@ def find_windows(pids: set[int]) -> dict[int, WindowInfo]:
         )
     result = {}
     for pid, windows in by_pid.items():
-        chosen = _choose_window(windows)
+        chosen = choose_window(windows)
         if chosen:
             result[pid] = chosen
     return result

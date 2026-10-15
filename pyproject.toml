@@ -1,7 +1,7 @@
 [project]
 name = "mcmanager"
-version = "0.2.0"
-description = "Multi-Account Manager for Minecraft: a Prism Launcher dashboard with live window previews (macOS)"
+version = "0.3.0.dev1"  # PEP 440 spelling of mcmanager.__version__ "0.3.0-windows-preview.1"
+description = "Multi-Account Manager for Minecraft: a Prism Launcher dashboard with live window previews (macOS; Windows experimental)"
 license = "MIT"
 requires-python = ">=3.11"
 

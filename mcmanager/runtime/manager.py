@@ -19,7 +19,6 @@ entry that owns its instance.
 from __future__ import annotations
 
 import logging
-import signal
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -45,7 +44,7 @@ from mcmanager.runtime.launch_queue import ItemState, LaunchBatch, LaunchQueue
 from mcmanager.runtime.models import AppEvent, LogState, RunState, RuntimeInfo
 from mcmanager.runtime.playtime import PlaytimeTracker
 from mcmanager.runtime.poller import Poller, PollResult, game_dir_for
-from mcmanager.runtime.process_finder import GameProcess, send_signal
+from mcmanager.runtime.process_finder import GameProcess, kill_process, terminate_process
 
 log = logging.getLogger(__name__)
 
@@ -483,8 +482,8 @@ class InstanceManager(QObject):
         if result.ok:
             log.info("Requested graceful close of pid %s via its window", proc.pid)
         else:
-            log.info("Graceful close unavailable (%s); sending SIGTERM to pid %s", result.message, proc.pid)
-            send_signal(proc, signal.SIGTERM)
+            log.info("Graceful close unavailable (%s); terminating pid %s", result.message, proc.pid)
+            terminate_process(proc)
         self.poller.poll_now()
 
     def force_quit(self, entry_id: str) -> None:
@@ -494,7 +493,7 @@ class InstanceManager(QObject):
         info = self.info(entry_id)
         info.state = RunState.STOPPING
         info.stop_requested_at = info.stop_requested_at or time.time()
-        if send_signal(proc, signal.SIGKILL):
+        if kill_process(proc):
             info.message = "Force quit"
         self.entry_updated.emit(entry_id)
         self.poller.poll_now()

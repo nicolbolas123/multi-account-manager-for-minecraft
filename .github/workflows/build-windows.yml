@@ -1,0 +1,62 @@
+# Experimental Windows build: runs the whole test suite on Windows, builds the app with
+# packaging/build_windows.ps1, verifies it (x64 executables, Qt plugins, self-check) and starts the
+# packaged app in mock mode as a smoke test. Uploads the release zip and the smoke test's screenshot
+# and log as workflow artifacts. It never creates, edits or publishes a GitHub release.
+name: Build Windows app (experimental)
+
+on:
+  workflow_dispatch:             # "Run workflow" button on the Actions tab
+  push:
+    branches: ["windows-support"]
+    tags: ["v*-windows*"]        # Windows preview tags, e.g. v0.3.0-windows-preview.1
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (Windows x64)
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v6.1.0
+
+      - uses: actions/setup-python@v6.3.0
+        with:
+          python-version: "3.14"   # keep in step with docs/DISTRIBUTING.md
+          architecture: x64
+
+      - name: Build, test, verify and smoke-test
+        shell: pwsh
+        run: packaging\build_windows.ps1 -Package
+
+      - name: Upload smoke test screenshot and log
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: windows-smoke-test
+          path: build/windows-smoke/
+          if-no-files-found: ignore
+
+      # GitHub's artifact storage occasionally times out, so a failed upload is retried once.
+      - name: Upload release zip
+        id: upload
+        continue-on-error: true
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: Windows-x64
+          path: dist/release/*
+          if-no-files-found: error
+
+      - name: Wait before retrying the upload
+        if: steps.upload.outcome == 'failure'
+        shell: pwsh
+        run: Start-Sleep -Seconds 60
+
+      - name: Upload release zip (retry)
+        if: steps.upload.outcome == 'failure'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: Windows-x64
+          path: dist/release/*
+          if-no-files-found: error
+          overwrite: true

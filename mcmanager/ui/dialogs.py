@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from mcmanager import APP_NAME
+from mcmanager import APP_NAME, system
 from mcmanager.config import LABEL_COLORS, DashboardEntry
 from mcmanager.config.settings import LAUNCH_DELAY_RANGE, NOTIFICATION_CATEGORIES
 from mcmanager.runtime.manager import InstanceManager
@@ -340,7 +340,7 @@ class SettingsDialog(QDialog):
     def _send_test(self) -> None:
         # The app can only hand the notification to macOS; whether it is shown is up to macOS settings.
         if self.notifier and self.notifier.send_test():
-            self._test_result = f"Test handed to macOS via {self.notifier.backend.name}. Nothing appeared? See below."
+            self._test_result = f"Test sent via {self.notifier.backend.name}. Nothing appeared? See below."
         else:
             self._test_result = "Could not send a notification on this system."
         self.backend_note.setText(self._test_result)
@@ -362,10 +362,16 @@ class SettingsDialog(QDialog):
         self.tile_width = self._spin(260, 720, s.tile_width, " px")
         vf.addRow("Tile size", self.tile_width)
         self.backend = QComboBox()
-        sck_ok = ScreenCaptureKitBackend.available()
-        self.backend.addItem("Automatic" + (" (ScreenCaptureKit)" if sck_ok else " (Quartz)"), "auto")
-        self.backend.addItem("ScreenCaptureKit (macOS 14+)", "screencapturekit")
-        self.backend.addItem("Quartz CGWindowList (legacy)", "quartz")
+        if system.IS_WINDOWS:
+            from mcmanager.windows.win32 import CAPTURE_METHODS
+
+            self.backend.addItem("Automatic (window content)", "auto")
+            self.backend.addItem(CAPTURE_METHODS["screen"], "screen")
+        else:
+            sck_ok = ScreenCaptureKitBackend.available()
+            self.backend.addItem("Automatic" + (" (ScreenCaptureKit)" if sck_ok else " (Quartz)"), "auto")
+            self.backend.addItem("ScreenCaptureKit (macOS 14+)", "screencapturekit")
+            self.backend.addItem("Quartz CGWindowList (legacy)", "quartz")
         self.backend.setCurrentIndex(max(0, self.backend.findData(s.preview.backend)))
         vf.addRow("Capture method", self.backend)
         vf.addRow("", _hint("Higher frame rates and widths look better but cost more CPU and GPU time."))
@@ -375,20 +381,27 @@ class SettingsDialog(QDialog):
 
     def _permissions_tab(self) -> QWidget:
         page, lay = self._page()
-        perm = QGroupBox("macOS permissions")
+        perm = QGroupBox("macOS permissions" if system.IS_MAC else "Permissions")
         mf = QFormLayout(perm)
-        mf.addRow("Screen Recording", self._perm_row(
-            permissions.screen_capture_allowed(), "Required for live previews.",
-            permissions.request_screen_capture, permissions.SCREEN_RECORDING_SETTINGS_URL))
-        mf.addRow("Accessibility", self._perm_row(
-            permissions.accessibility_trusted(),
-            "Optional: restores minimized windows and closes games gracefully.",
-            permissions.request_accessibility, permissions.ACCESSIBILITY_SETTINGS_URL))
+        if system.needs_privacy_permissions():
+            mf.addRow("Screen Recording", self._perm_row(
+                permissions.screen_capture_allowed(), "Required for live previews.",
+                permissions.request_screen_capture, permissions.SCREEN_RECORDING_SETTINGS_URL))
+            mf.addRow("Accessibility", self._perm_row(
+                permissions.accessibility_trusted(),
+                "Optional: restores minimized windows and closes games gracefully.",
+                permissions.request_accessibility, permissions.ACCESSIBILITY_SETTINGS_URL))
         mf.addRow("Notifications", self._notification_perm_row())
-        mf.addRow("", _hint(
-            f"macOS grants these to {permissions.permission_holder()}. "
-            "After changing a permission, quit and reopen this app."
-        ))
+        if system.needs_privacy_permissions():
+            mf.addRow("", _hint(
+                f"macOS grants these to {permissions.permission_holder()}. "
+                "After changing a permission, quit and reopen this app."
+            ))
+        else:
+            mf.addRow("", _hint(
+                "Live previews and window control need no special permission here, and no administrator "
+                "rights. (A game started “as administrator” can't be controlled by a normal app.)"
+            ))
         lay.addWidget(perm)
         lay.addStretch(1)
         return page
@@ -452,13 +465,15 @@ class SettingsDialog(QDialog):
                               "or press Request.",
             "unknown": "❔ Can't be checked when running from Terminal (macOS lists these under “Script "
                        "Editor”). Use the packaged app for its own notification permission.",
+            "system": "❔ Sent to Windows. Whether they appear depends on Settings › System › Notifications "
+                      "and Do not disturb, which apps can't check; use Send Test Notification.",
             "unavailable": "❔ Native notifications aren't available here; alerts appear inside the dashboard.",
         }.get(state, "❔ Checking…")
         if backend and getattr(backend, "auth", None) == "checking":
             text = "❔ Checking…"
         self.notify_perm_label.setText(text)
         self.notify_perm_request.setVisible(state == "not determined")
-        self.notify_perm_open.setVisible(state in ("denied", "not determined", "unknown"))
+        self.notify_perm_open.setVisible(state in ("denied", "not determined", "unknown", "system"))
 
     def _perm_row(self, granted: bool, text: str, request, url: str):
         row = QHBoxLayout()
@@ -475,7 +490,13 @@ class SettingsDialog(QDialog):
         return row
 
     def _browse_app(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Choose Prism Launcher", "/Applications", "Applications (*.app);;All files (*)")
+        if system.IS_WINDOWS:
+            start = str(self.manager.install.executable.parent) if self.manager.install.executable else ""
+            path, _ = QFileDialog.getOpenFileName(self, "Choose Prism Launcher (prismlauncher.exe)", start,
+                                                  "Prism Launcher (prismlauncher.exe);;Programs (*.exe)")
+        else:
+            path, _ = QFileDialog.getOpenFileName(self, "Choose Prism Launcher", "/Applications",
+                                                  "Applications (*.app);;All files (*)")
         if path:
             self.app_path.setText(path)
 

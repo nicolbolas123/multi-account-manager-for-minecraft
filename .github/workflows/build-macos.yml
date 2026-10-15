@@ -7,7 +7,7 @@ name: Build macOS apps
 on:
   workflow_dispatch:          # "Run workflow" button on the Actions tab
   push:
-    tags: ["v*"]              # also build when a version tag is pushed
+    tags: ["v*", "!v*-windows*"]  # also build when a version tag is pushed (not Windows previews)
 
 permissions:
   contents: read

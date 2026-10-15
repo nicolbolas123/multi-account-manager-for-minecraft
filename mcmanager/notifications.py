@@ -16,6 +16,10 @@ Backends
     UserNotifications, so these notifications are attributed to "Script
     Editor" and are silently dropped unless Script Editor may notify. Delivery
     can't be confirmed, so Settings has a "Send Test Notification" button.
+    ``TrayNotificationBackend`` (Windows): a notification-area (tray) icon whose
+    ``showMessage`` Windows 10/11 shows as a toast notification. Needs no extra
+    package and no registration; whether it appears is up to Windows' notification
+    and Do-not-disturb settings, which an app can't read, so Settings offers a test.
     ``InAppBackend`` shows the notification as a toast in the dashboard; it is
     the fallback where native notifications are unavailable.
 
@@ -53,8 +57,9 @@ class NotificationBackend:
     name = "none"
     native = False
     status = ""  # human-readable permission/delivery state for Settings
-    # Permission as macOS reports it: "allowed" | "denied" | "not determined" | "unknown" (can't be
-    # read for this backend) | "unavailable" (no native notifications here)
+    # Permission as the OS reports it: "allowed" | "denied" | "not determined" | "unknown" (macOS,
+    # can't be read for this backend) | "system" (Windows: delivered, but its settings can't be
+    # read) | "unavailable" (no native notifications here)
     permission = "unavailable"
 
     def request_permission(self) -> None:
@@ -223,8 +228,51 @@ def _foreground_delegate():
     return _delegate_class.alloc().init()
 
 
+class TrayNotificationBackend(NotificationBackend):
+    """Windows notifications through a notification-area icon (shown as toasts on Windows 10/11)."""
+
+    name = "Windows notifications"
+    native = True
+    permission = "system"
+    status = ("Windows shows these as notifications. Nothing appeared? Check Settings › System › "
+              "Notifications (and Do not disturb / Focus).")
+
+    def __init__(self):
+        from PySide6.QtWidgets import QApplication, QSystemTrayIcon
+
+        app = QApplication.instance()
+        self._tray = QSystemTrayIcon(app.windowIcon(), app)
+        self._tray.setToolTip(APP_NAME)
+        self._tray.activated.connect(lambda _reason: self.on_activate and self.on_activate())
+        self.on_activate: Callable[[], None] | None = None  # e.g. show the dashboard
+        self._tray.show()
+        app.aboutToQuit.connect(self._tray.hide)  # don't leave a dead icon behind
+
+    @staticmethod
+    def available() -> bool:
+        if sys.platform != "win32":
+            return False
+        from PySide6.QtWidgets import QApplication, QSystemTrayIcon
+
+        return QApplication.instance() is not None and QSystemTrayIcon.isSystemTrayAvailable()
+
+    def send(self, title: str, message: str) -> bool:
+        from PySide6.QtWidgets import QSystemTrayIcon
+
+        if not self._tray.isVisible():
+            self._tray.show()
+        self._tray.showMessage(title, message, QSystemTrayIcon.MessageIcon.Information, 8000)
+        return True
+
+
 def native_backend() -> NotificationBackend | None:
     """The best native backend for how the app is running, or None."""
+    if TrayNotificationBackend.available():
+        try:
+            return TrayNotificationBackend()
+        except Exception:  # never let notifications stop the app from starting
+            log.exception("Could not set up Windows notifications")
+            return None
     if UserNotificationsBackend.available():
         try:
             return UserNotificationsBackend(fallback=MacNotificationBackend() if MacNotificationBackend.available() else None)

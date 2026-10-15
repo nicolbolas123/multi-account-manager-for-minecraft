@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from mcmanager import system
 from mcmanager.config import DashboardEntry
 from mcmanager.prism import PrismInstance
 from mcmanager.runtime.models import RunState, RuntimeInfo
@@ -62,10 +63,10 @@ def present(entry: DashboardEntry, instance: PrismInstance | None, info: Runtime
             title, subtitle = "Waiting for game window…", "The game is running but has no window yet"
         elif preview.permission_problem:
             title = "Screen Recording permission needed"
-            subtitle = "Enable it in System Settings › Privacy & Security, then restart the app"
+            subtitle = f"Enable it in {system.SETTINGS_APP} › Privacy & Security, then restart the app"
         elif preview.frame is None:
             if not info.window.onscreen:
-                title, subtitle = "Window hidden", "Minimized or on another Space"
+                title, subtitle = "Window hidden", system.HIDDEN_WINDOW_REASON
             elif preview.error:
                 title, subtitle = "Preview unavailable", preview.error
             else:
@@ -73,7 +74,8 @@ def present(entry: DashboardEntry, instance: PrismInstance | None, info: Runtime
         elif preview.error or preview.stale:
             dim = True
             title = "Preview paused"
-            subtitle = "Window minimized or on another Space" if not info.window.onscreen else (preview.error or "")
+            subtitle = f"Window hidden ({system.HIDDEN_WINDOW_REASON.lower()})" if not info.window.onscreen \
+                else (preview.error or "")
         if state == RunState.STOPPING:
             title, subtitle, dim = "Closing…", info.message or "", True
 

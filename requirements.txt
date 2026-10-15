@@ -1,9 +1,11 @@
-# Runtime dependencies (macOS). Install with: pip install -r requirements.txt
+# Runtime dependencies. Install with: pip install -r requirements.txt
+# PyObjC (window capture, focus and notifications through Apple's frameworks) is macOS-only;
+# on Windows the same features use the Win32 API through ctypes, which needs no extra package.
 PySide6-Essentials>=6.8
 psutil>=6.0
-pyobjc-core>=11.0
-pyobjc-framework-Cocoa>=11.0
-pyobjc-framework-Quartz>=11.0
-pyobjc-framework-ScreenCaptureKit>=11.0
-pyobjc-framework-ApplicationServices>=11.0
-pyobjc-framework-UserNotifications>=11.0
+pyobjc-core>=11.0; sys_platform == "darwin"
+pyobjc-framework-Cocoa>=11.0; sys_platform == "darwin"
+pyobjc-framework-Quartz>=11.0; sys_platform == "darwin"
+pyobjc-framework-ScreenCaptureKit>=11.0; sys_platform == "darwin"
+pyobjc-framework-ApplicationServices>=11.0; sys_platform == "darwin"
+pyobjc-framework-UserNotifications>=11.0; sys_platform == "darwin"

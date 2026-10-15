@@ -8,7 +8,8 @@ ROOT = Path(SPECPATH).parent  # noqa: F821  (SPECPATH is provided by PyInstaller
 init = (ROOT / "mcmanager" / "__init__.py").read_text()
 APP_NAME = re.search(r'APP_NAME = "([^"]+)"', init).group(1)
 BUNDLE_ID = re.search(r'APP_BUNDLE_ID = "([^"]+)"', init).group(1)
-VERSION = re.search(r'__version__ = "([^"]+)"', init).group(1)
+# CFBundleShortVersionString must be numeric: a pre-release suffix ("-windows-preview.1") is dropped.
+VERSION = re.search(r'__version__ = "([^"]+)"', init).group(1).split("-")[0]
 # One architecture per build (arm64 or x86_64), set by build_app.sh. PyInstaller then thins
 # universal libraries to it and refuses any binary that lacks it (e.g. a wrong psutil wheel).
 TARGET_ARCH = os.environ.get("MCM_TARGET_ARCH") or None

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import sys
 
 from PySide6.QtCore import QEvent, Qt, QTimer, QUrl
 from PySide6.QtGui import QCursor, QDesktopServices, QKeySequence, QShortcut
@@ -24,7 +23,7 @@ from PySide6.QtWidgets import (
     QWidgetAction,
 )
 
-from mcmanager import APP_NAME, DISCORD_USERNAME, ISSUES_URL
+from mcmanager import APP_NAME, DISCORD_USERNAME, ISSUES_URL, system
 from mcmanager.runtime.manager import InstanceManager
 from mcmanager.runtime.models import RunState
 from mcmanager.runtime.previews import PreviewCoordinator
@@ -178,7 +177,7 @@ class MainWindow(QMainWindow):
         feedback_btn = button("Feedback", None, "Suggestions or bug reports")
         feedback_btn.setMenu(self._build_feedback_menu(feedback_btn))
         row.addWidget(feedback_btn)
-        self.add_btn = button("+ Add Account", "primary", "Add a dashboard entry for a Prism instance (⌘N)")
+        self.add_btn = button("+ Add Account", "primary", f"Add a dashboard entry for a Prism instance ({system.MOD_KEY}N)")
         self.add_btn.clicked.connect(self.add_entry)
         row.addWidget(self.add_btn)
         self._header = header
@@ -500,7 +499,7 @@ class MainWindow(QMainWindow):
             )
         elif not install.can_launch and not self.mock:
             self.empty_text.setText(
-                "Prism Launcher was not found. Install it from prismlauncher.org (move it to /Applications), "
+                f"Prism Launcher was not found. Install it from prismlauncher.org ({system.PRISM_INSTALL_HINT}), "
                 "sign in to your Microsoft account in Prism, create an instance, then return here."
             )
         else:
@@ -773,7 +772,7 @@ class MainWindow(QMainWindow):
     # ---------------------------------------------------------------- banners
     def refresh_banners(self) -> None:
         install = self.manager.install
-        needs_capture = sys.platform == "darwin" and not self.mock and (
+        needs_capture = system.needs_privacy_permissions() and not self.mock and (
             not permissions.screen_capture_allowed() or self.previews.permission_problem)
         key = (self.mock, install.can_launch, install.data_dir_exists, needs_capture, tuple(install.warnings))
         if key == getattr(self, "_banner_key", None):
@@ -794,7 +793,7 @@ class MainWindow(QMainWindow):
             b = Banner("error")
             b.set_text("<b>Prism Launcher was not found.</b> Install it from "
                        "<a href='https://prismlauncher.org'>prismlauncher.org</a>, sign in to your Microsoft "
-                       "account there, and move it to /Applications — or choose its location in Settings.")
+                       f"account there, and {system.PRISM_INSTALL_HINT} — or choose its location in Settings.")
             b.add_action("Settings…", self.open_settings)
             self.banner_box.addWidget(b)
         elif not install.data_dir_exists:

@@ -7,14 +7,17 @@ Package layout:
     config/   persisted user settings and dashboard entries
     prism/    Prism Launcher discovery, instance/account listing, launching
     runtime/  process tracking, log parsing and the per-entry state machine
-    windows/  window discovery, live capture, focusing (macOS)
+    windows/  app *windows*: discovery, live capture, focusing (macOS: Quartz/ScreenCaptureKit/
+              Accessibility; Microsoft Windows: Win32 API in windows/win32.py)
+    system.py which OS we run on, and the user-facing wording that depends on it
     mock/     clearly separated mock environment for demos and testing
     ui/       PySide6 interface
 """
 
 APP_NAME = "Multi-Account Manager for Minecraft"
 # The two identifiers below predate the current name and are kept on purpose: APP_ID names the
-# user-data folders in ~/Library (renaming it would orphan existing settings and play time), and
+# user-data folders (~/Library on macOS, %APPDATA% on Windows; renaming it would orphan existing
+# settings and play time), and
 # the bundle identifier is what macOS ties permissions to.
 APP_ID = "MinecraftMultiAccountManager"  # folder name for user data, logs and caches
 APP_BUNDLE_ID = "local.MinecraftMultiAccountManager"  # macOS bundle identifier of the packaged .app
@@ -22,4 +25,4 @@ APP_BUNDLE_ID = "local.MinecraftMultiAccountManager"  # macOS bundle identifier 
 GITHUB_REPO = "nicolbolas123/multi-account-manager-for-minecraft"
 ISSUES_URL = f"https://github.com/{GITHUB_REPO}/issues"
 DISCORD_USERNAME = "nicolbolas123"
-__version__ = "0.2.0"
+__version__ = "0.3.0-windows-preview.1"  # macOS builds use the part before "-"

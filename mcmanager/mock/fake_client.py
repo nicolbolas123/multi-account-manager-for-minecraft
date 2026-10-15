@@ -41,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
         fh.close()
         sys.exit(0)
 
-    signal.signal(signal.SIGTERM, on_term)
+    signal.signal(signal.SIGTERM, on_term)  # on Windows, terminating a process runs no handler
     write(f"Setting user: {args.player}")
     time.sleep(2)
     write(f"Connecting to {args.server}, 25565")
@@ -52,7 +52,7 @@ def main(argv: list[str] | None = None) -> int:
             reports = game / "crash-reports"
             reports.mkdir(exist_ok=True)
             (reports / f"crash-{time.strftime('%Y-%m-%d_%H.%M.%S')}-client.txt").write_text(
-                "---- Minecraft Crash Report ----\n// Mock crash for testing\n"
+                "---- Minecraft Crash Report ----\n// Mock crash for testing\n", encoding="utf-8"
             )
             write("Mock client crashing on purpose")
             os._exit(1)

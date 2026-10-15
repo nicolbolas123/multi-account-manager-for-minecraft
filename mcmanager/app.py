@@ -12,7 +12,7 @@ from pathlib import Path
 
 from mcmanager import APP_ID, APP_NAME, __version__
 from mcmanager.logging_setup import setup_logging
-from mcmanager.paths import app_support_dir, cache_dir
+from mcmanager.paths import app_support_dir, cache_dir, logs_dir
 
 log = logging.getLogger("mcmanager")
 
@@ -94,13 +94,13 @@ def build(args: argparse.Namespace) -> AppContext:
         log.warning("MOCK MODE: using simulated data in %s", cache_dir() / "mock")
     else:
         from mcmanager.prism import locate_prism
-        from mcmanager.windows.service import WindowService
+        from mcmanager.windows.service import create_window_service
 
         store = SettingsStore(settings_path(args))
         settings = store.load()
         locate = locate_prism
         install = locate_prism(settings.prism_app_path, settings.prism_data_dir)
-        launch_backend, window_service = PrismLaunchBackend(), WindowService()
+        launch_backend, window_service = PrismLaunchBackend(), create_window_service()
         backend = create_backend(settings.preview.backend)
     log.info("Settings file: %s; capture backend: %s", store.path, backend.name)
 
@@ -114,6 +114,8 @@ def build(args: argparse.Namespace) -> AppContext:
     in_app = InAppBackend(lambda title, message: window.toasts.show_message("info", f"{title}. {message}"))
     native = native_backend()
     log.info("Notifications: %s", native.name if native else "in-app only (no native backend)")
+    if native is not None and hasattr(native, "on_activate"):  # Windows tray icon: click shows the dashboard
+        native.on_activate = lambda: (window.showNormal(), window.raise_(), window.activateWindow())
     notifier = Notifier(lambda: manager.settings.notifications, native or in_app, fallback=in_app)
     manager.app_event.connect(notifier.handle)
     window.notifier = notifier
@@ -141,12 +143,25 @@ def self_check() -> int:
     app = QApplication.instance() or QApplication(sys.argv[:1])  # noqa: F841 (needed for image loading)
     report: dict = {"frozen": bundle.is_frozen(), "bundle": str(bundle.app_bundle_path() or ""), "problems": []}
     report.update(bundle.runtime_arch())
-    for module in ("PySide6.QtWidgets", "PySide6.QtSvg", "psutil", "objc", "Foundation", "AppKit", "Quartz",
-                   "ScreenCaptureKit", "ApplicationServices", "UserNotifications", "mcmanager.mock.fake_client"):
+    report["platform"] = sys.platform
+    modules = ["PySide6.QtWidgets", "PySide6.QtSvg", "psutil", "mcmanager.mock.fake_client"]
+    if sys.platform == "darwin":
+        modules += ["objc", "Foundation", "AppKit", "Quartz", "ScreenCaptureKit", "ApplicationServices",
+                    "UserNotifications"]
+    elif sys.platform == "win32":
+        modules += ["winreg", "mcmanager.windows.win32"]
+    for module in modules:
         try:
             importlib.import_module(module)
         except Exception as exc:  # noqa: BLE001 - report every failure
             report["problems"].append(f"import {module}: {exc}")
+    if sys.platform == "win32":
+        try:  # the Win32 API is reachable and a window enumeration works
+            from mcmanager.windows import win32
+
+            win32.find_windows({os.getpid()})
+        except Exception as exc:  # noqa: BLE001
+            report["problems"].append(f"Win32 window API: {exc}")
     formats = {bytes(f).decode() for f in QImageReader.supportedImageFormats()}
     if "svg" not in formats:
         report["problems"].append("Qt SVG image plugin missing")
@@ -162,6 +177,7 @@ def self_check() -> int:
         pass
     install = locate_prism()
     report["prism"] = str(install.app_bundle or install.executable or "not found")
+    report["prism_data"] = str(install.data_dir)
     report["user_data"] = str(app_support_dir())
     from mcmanager.notifications import native_backend
 
@@ -177,7 +193,13 @@ def self_check() -> int:
                                "permission": backend.permission if backend else "unavailable"}
     report["private_env_vars"] = sorted(k for k in os.environ if k.startswith(bundle._PRIVATE_ENV_PREFIXES))
     report["ok"] = not report["problems"]
-    print(json.dumps(report, indent=2))
+    text = json.dumps(report, indent=2)
+    if sys.stdout is not None:
+        print(text)
+    else:  # windowed Windows .exe: no console to print to (the "(console)" .exe prints it)
+        out = logs_dir() / "self-check.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(text, encoding="utf-8")
     return 0 if report["ok"] else 1
 
 

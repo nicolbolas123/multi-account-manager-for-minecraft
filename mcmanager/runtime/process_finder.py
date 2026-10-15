@@ -4,16 +4,21 @@ Prism starts Minecraft with ``-Djava.library.path=<instance>/natives`` and the
 working directory set to ``<instance>/minecraft``. We match on those, which
 identifies the exact instance and never touches unrelated Java processes.
 
-Every signal we send is preceded by :func:`verify_process`, which re-checks the
+Every stop/kill is preceded by :func:`verify_process`, which re-checks the
 PID's creation time and command line so a recycled PID can never be killed by
 mistake.
+
+Paths are compared with the platform's rules (``os.path.normcase``): on Windows that ignores
+case and treats ``/`` and ``\\`` alike (Prism may write either), on macOS it compares exactly.
+Stopping uses psutil's portable ``terminate()``/``kill()`` (SIGTERM/SIGKILL on macOS,
+``TerminateProcess`` on Windows, where a *graceful* stop goes through the game window instead:
+see ``mcmanager.windows``).
 """
 
 from __future__ import annotations
 
 import logging
 import os
-import signal
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -30,19 +35,25 @@ class GameProcess:
     instance_dir: str
 
 
+# Path comparison rules of the running OS (replaceable in tests to check Windows behaviour).
+_norm = os.path.normcase
+_PATHSEP = os.pathsep
+
+
 def _game_dirs(instance_dir: Path) -> set[str]:
-    return {str(instance_dir / "minecraft"), str(instance_dir / ".minecraft")}
+    return {_norm(str(instance_dir / "minecraft")), _norm(str(instance_dir / ".minecraft"))}
 
 
 def process_matches(cmdline: list[str], cwd: str | None, instance_dir: Path) -> bool:
-    natives = str(instance_dir / "natives")
+    natives = _norm(str(instance_dir / "natives"))
     for arg in cmdline:
+        arg = _norm(arg)
         if natives not in arg:
             continue
-        value = arg.split("=", 1)[1] if arg.startswith("-D") and "=" in arg else arg
-        if natives in value.split(os.pathsep):
+        value = arg.split("=", 1)[1] if arg[:2] in ("-D", "-d") and "=" in arg else arg  # -d: normcase'd
+        if natives in (v.rstrip("\\/") for v in value.split(_PATHSEP)):
             return True
-    return cwd is not None and cwd in _game_dirs(instance_dir)
+    return cwd is not None and _norm(cwd).rstrip("\\/") in _game_dirs(instance_dir)
 
 
 def _looks_like_java(name: str | None, cmdline: list[str]) -> bool:
@@ -71,15 +82,15 @@ def scan_game_processes(instance_dirs: Iterable[Path]) -> dict[str, list[GamePro
             cmdline = proc.cmdline()
         except psutil.Error:
             continue
-        joined = "\0".join(cmdline)
-        candidates = [d for d in dirs if str(d) in joined]
+        joined = _norm("\0".join(cmdline))
+        candidates = [d for d in dirs if _norm(str(d)) in joined]
         cwd = None
         if not candidates and _looks_like_java(info.get("name"), cmdline):
             try:
                 cwd = proc.cwd()
             except psutil.Error:
                 cwd = None
-            candidates = [d for d in dirs if cwd in _game_dirs(d)] if cwd else []
+            candidates = [d for d in dirs if _norm(cwd).rstrip("\\/") in _game_dirs(d)] if cwd else []
         for d in candidates:
             if process_matches(cmdline, cwd, d):
                 found[str(d)].append(GameProcess(info["pid"], info["create_time"], str(d)))
@@ -108,15 +119,33 @@ def verify_process(proc: GameProcess) -> psutil.Process | None:
         return None
 
 
-def send_signal(proc: GameProcess, sig: int = signal.SIGTERM) -> bool:
+def _stop(proc: GameProcess, force: bool) -> bool:
+    action = "kill" if force else "terminate"
     p = verify_process(proc)
     if p is None:
-        log.warning("Refusing to signal pid %s: it is no longer the tracked game process", proc.pid)
+        log.warning("Refusing to %s pid %s: it is no longer the tracked game process", action, proc.pid)
         return False
     try:
-        p.send_signal(sig)
-        log.info("Sent signal %s to game pid %s", sig, proc.pid)
+        p.kill() if force else p.terminate()
+        log.info("Sent %s to game pid %s", action, proc.pid)
         return True
-    except psutil.Error as exc:
-        log.warning("Signal %s to pid %s failed: %s", sig, proc.pid, exc)
+    except psutil.AccessDenied:
+        log.warning("Not allowed to %s pid %s (started by another user or elevated?)", action, proc.pid)
         return False
+    except psutil.Error as exc:
+        log.warning("%s of pid %s failed: %s", action.capitalize(), proc.pid, exc)
+        return False
+
+
+def terminate_process(proc: GameProcess) -> bool:
+    """Ask the game process to quit: SIGTERM on macOS (the JVM shuts down normally).
+
+    On Windows this is ``TerminateProcess``, i.e. immediate; callers try closing the game's
+    window first (``WindowService.close_gracefully``) so Minecraft can save.
+    """
+    return _stop(proc, force=False)
+
+
+def kill_process(proc: GameProcess) -> bool:
+    """Force quit: SIGKILL on macOS, ``TerminateProcess`` on Windows."""
+    return _stop(proc, force=True)

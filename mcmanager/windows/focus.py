@@ -50,7 +50,7 @@ def _main_ax_window(pid: int):
 
 def bring_to_front(pid: int) -> ActionResult:
     if sys.platform != "darwin":
-        return ActionResult(False, "Bringing windows forward is only implemented on macOS.")
+        return ActionResult(False, "Bringing windows forward isn't implemented on this platform.")
     import AppKit
 
     app = AppKit.NSRunningApplication.runningApplicationWithProcessIdentifier_(pid)
