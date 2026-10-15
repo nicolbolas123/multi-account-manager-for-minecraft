@@ -47,6 +47,11 @@ Building the app: see "Build the app yourself" in the [README](README.md#c-build
 - **Use only documented Prism command-line options** (check `prismlauncher --help`).
 - **Add tests** for behaviour changes. Tests run offscreen with mock backends (`tests/`); don't
   require a real Minecraft, Prism or macOS permissions in the test suite.
+- **Both platforms**: macOS-specific and Windows-specific code lives behind the interfaces in
+  `mcmanager/windows/` (`service.py`, `capture.py`; Windows in `win32.py`), `prism/locator.py`,
+  `notifications.py` and `paths.py`; platform wording comes from `mcmanager/system.py`. Keep
+  `sys.platform` checks out of the UI and runtime layers. `tests/test_windows.py` checks Windows
+  rules on any OS; its `windows_only` tests run on the Windows CI runner.
 - **Both architectures**: releases are built separately for Apple silicon and Intel. Don't assume
   a CPU type, a Homebrew prefix or other build-machine paths in code. When adding or upgrading a
   dependency, pin it in `packaging/constraints.txt` and check it still publishes x86_64 macOS

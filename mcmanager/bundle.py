@@ -121,4 +121,7 @@ def fake_client_command() -> tuple[list[str], dict[str, str]]:
         return [sys.executable, FAKE_CLIENT_FLAG], dict(os.environ, PYINSTALLER_RESET_ENVIRONMENT="1")
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(resource_root()), env.get("PYTHONPATH")]))
-    return [sys.executable, "-m", "mcmanager.mock.fake_client"], env
+    # On Windows a venv's python.exe is a launcher that runs the real interpreter as a child, so the
+    # fake game would show up as two processes. It only needs the standard library: use the base one.
+    python = getattr(sys, "_base_executable", None) if sys.platform == "win32" else None
+    return [python or sys.executable, "-m", "mcmanager.mock.fake_client"], env

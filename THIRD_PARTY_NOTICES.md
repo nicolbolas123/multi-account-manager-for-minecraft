@@ -1,8 +1,9 @@
 # Third-party notices
 
 Multi-Account Manager for Minecraft itself is released under the MIT License (`LICENSE`). The packaged app
-(`Multi-Account Manager for Minecraft.app`) also contains the following third-party software. Their license texts are included in the app at
-`Contents/Resources/licenses/` and in this repository under `packaging/licenses/` (or, for
+(`Multi-Account Manager for Minecraft.app` on macOS, the `Multi-Account Manager for Minecraft` folder on
+Windows) also contains the following third-party software (PyObjC only on macOS). Their license texts are included in the app at
+`Contents/Resources/licenses/` (macOS) or `_internal\licenses\` (Windows) and in this repository under `packaging/licenses/` (or, for
 permissively licensed packages, are copied from the installed package at build time).
 
 | Component | Version built with | License | Source |

@@ -1,6 +1,7 @@
 # Multi-Account Manager for Minecraft
 
-A macOS dashboard for running several Minecraft: Java Edition accounts at once. It launches
+A macOS dashboard (with an **experimental Windows preview**) for running several Minecraft: Java
+Edition accounts at once. It launches
 your instances **through [Prism Launcher](https://prismlauncher.org)**, tracks every game
 process, shows a **live preview of each real game window**, and brings any game to the front
 so you can play it with your normal mouse and keyboard.
@@ -11,6 +12,11 @@ so you can play it with your normal mouse and keyboard.
 ![Dashboard with a group, running accounts and live previews (mock mode)](docs/images/dashboard.png)
 
 <sub>Screenshots are taken in mock mode (`--mock`), which uses simulated instances and preview images.</sub>
+
+> **Windows:** an experimental preview is available as a *Pre-release* on the Releases page. It
+> is built and tested automatically on Windows but **not yet verified with real Minecraft on a
+> Windows PC**. Installation, feature status, known issues and a testing checklist:
+> **[docs/WINDOWS.md](docs/WINDOWS.md)**. The rest of this README describes the macOS app.
 
 ## Features
 
@@ -39,7 +45,7 @@ so you can play it with your normal mouse and keyboard.
 | | |
 |---|---|
 | macOS | **14 Sonoma or later** for the packaged app (its Qt version needs 14). Tested on macOS 15.3. From source, macOS 13 can work with an older PySide6 (previews then use a legacy capture method). |
-| Mac | **Apple silicon** (M1 and newer) or **Intel**: there is a separate download for each, see [Which download?](#which-download). The Intel build has so far only been tested under Rosetta 2, not on a real Intel Mac. |
+| Mac | **Apple silicon** (M1 and newer) or **Intel**: there is a separate download for each, see [Which download?](#which-download). The Intel build is built and checked on GitHub's native Intel runners and tested under Rosetta 2, but not yet on a real Intel Mac by a user. |
 | Prism Launcher | Installed (preferably in `/Applications`), with at least one instance and a signed-in Microsoft account. Tested with Prism Launcher 11.1.1. |
 | From source only | Python 3.11+ from [python.org](https://www.python.org/downloads/macos/) (tested with 3.14). |
 

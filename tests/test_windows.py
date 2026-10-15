@@ -209,7 +209,8 @@ def test_real_process_is_found_and_force_quit(tmp_path):
 
     inst = tmp_path / "instances" / "Stand In"
     (inst / "minecraft").mkdir(parents=True)
-    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)",
+    python = getattr(sys, "_base_executable", None) or sys.executable  # not the Windows venv launcher
+    proc = subprocess.Popen([python, "-c", "import time; time.sleep(60)",
                              f"-Djava.library.path={inst / 'natives'}"],
                             cwd=inst / "minecraft", **detached_process_kwargs(hide_console=True))
     try:
@@ -327,12 +328,21 @@ def test_win32_find_capture_focus_and_close_a_real_window():
     from mcmanager.windows import win32
     from mcmanager.windows.focus import ActionResult
 
+    import psutil
+
     env = {k: v for k, v in os.environ.items() if k.upper() != "QT_QPA_PLATFORM"}  # a real window
     proc = subprocess.Popen([sys.executable, "-c", _WINDOW_SCRIPT], env=env)
     try:
         info = None
-        for _ in range(150):
-            info = win32.find_windows({proc.pid}).get(proc.pid)
+        for _ in range(200):
+            # A venv's python.exe on Windows starts the real interpreter as a child process, which
+            # then owns the window: look at the whole process tree.
+            try:
+                pids = {proc.pid} | {c.pid for c in psutil.Process(proc.pid).children(recursive=True)}
+            except psutil.Error:
+                pids = {proc.pid}
+            found = win32.find_windows(pids)
+            info = next(iter(found.values()), None)
             if info:
                 break
             time.sleep(0.1)
@@ -350,8 +360,8 @@ def test_win32_find_capture_focus_and_close_a_real_window():
         r, g, b = (image.pixel(120, image.height() // 2) >> s & 0xFF for s in (16, 8, 0))
         assert abs(r - 0x30) < 24 and abs(g - 0x80) < 24 and abs(b - 0xFF) < 24, (r, g, b)
 
-        assert isinstance(win32.bring_to_front(proc.pid), ActionResult)  # focus rules depend on the session
-        result = win32.close_window_gracefully(proc.pid)
+        assert isinstance(win32.bring_to_front(info.pid), ActionResult)  # focus rules depend on the session
+        result = win32.close_window_gracefully(info.pid)
         assert result.ok, result.message
         assert proc.wait(timeout=15) == 0  # WM_CLOSE closed the window and the app quit normally
     finally:

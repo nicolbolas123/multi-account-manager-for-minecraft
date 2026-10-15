@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QInputDialog,
     QScrollArea,
+    QSizePolicy,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -180,6 +181,10 @@ class MainWindow(QMainWindow):
         self.add_btn = button("+ Add Account", "primary", f"Add a dashboard entry for a Prism instance ({system.MOD_KEY}N)")
         self.add_btn.clicked.connect(self.add_entry)
         row.addWidget(self.add_btn)
+        # Buttons keep the width their text needs; when the window is too narrow for all of them,
+        # _update_header_labels switches to short labels and the title/search shrink instead.
+        for b in (self.pause_btn, self.launch_all_btn, self.stop_all_btn, settings_btn, feedback_btn, self.add_btn):
+            b.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self._header = header
         return header
 

@@ -93,8 +93,9 @@ def test_list_instances_and_accounts(tmp_path):
 
 
 def test_custom_instance_dir(tmp_path):
-    (tmp_path / "prismlauncher.cfg").write_text("[General]\nInstanceDir=/Volumes/Games/mc\n")
-    assert instances_dir_for(tmp_path) == Path("/Volumes/Games/mc")
+    elsewhere = tmp_path / "Games Drive" / "mc"  # absolute on every OS (a drive path on Windows)
+    (tmp_path / "prismlauncher.cfg").write_text(f"[General]\nInstanceDir={elsewhere.as_posix()}\n")
+    assert instances_dir_for(tmp_path) == elsewhere
 
 
 def test_launch_command_uses_documented_flags(tmp_path):
@@ -122,7 +123,10 @@ def test_scan_finds_only_matching_process(tmp_path):
     inst_a, inst_b = tmp_path / "A", tmp_path / "B"
     for d in (inst_a, inst_b):
         (d / "minecraft").mkdir(parents=True)
-    proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)",
+    # The base interpreter: on Windows a venv's python.exe is a launcher that runs the real
+    # interpreter as a child process, which would give two processes with this command line.
+    python = getattr(sys, "_base_executable", None) or sys.executable
+    proc = subprocess.Popen([python, "-c", "import time; time.sleep(30)",
                              f"-Djava.library.path={inst_a / 'natives'}"])
     try:
         time.sleep(0.3)
