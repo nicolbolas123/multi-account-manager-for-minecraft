@@ -1,3 +1,6 @@
-# Packaging-only dependencies (installed into build/venv by packaging/build_app.sh).
+# Packaging-only dependencies (installed into build/venv-<arch> by packaging/build_app.sh).
+# Versions are pinned by constraints.txt so both architectures are built from the same packages.
+-c constraints.txt
 -r ../requirements.txt
 pyinstaller>=6.16,<7
+pytest>=8.0

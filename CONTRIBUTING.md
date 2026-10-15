@@ -47,6 +47,11 @@ Building the app: see "Build the app yourself" in the [README](README.md#c-build
 - **Use only documented Prism command-line options** (check `prismlauncher --help`).
 - **Add tests** for behaviour changes. Tests run offscreen with mock backends (`tests/`); don't
   require a real Minecraft, Prism or macOS permissions in the test suite.
+- **Both architectures**: releases are built separately for Apple silicon and Intel. Don't assume
+  a CPU type, a Homebrew prefix or other build-machine paths in code. When adding or upgrading a
+  dependency, pin it in `packaging/constraints.txt` and check it still publishes x86_64 macOS
+  wheels; build both with `packaging/build_app.sh --arch arm64` / `--arch x86_64` (Rosetta 2 on
+  Apple silicon) or the Build macOS apps workflow ([docs/DISTRIBUTING.md](docs/DISTRIBUTING.md)).
 - Match the surrounding code style: type hints, small modules, comments that explain *why*.
 - Don't claim a feature works with real Minecraft unless you tested it with real Minecraft; say
   what was tested in mock mode only.

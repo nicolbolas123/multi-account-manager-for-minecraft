@@ -140,6 +140,7 @@ def self_check() -> int:
 
     app = QApplication.instance() or QApplication(sys.argv[:1])  # noqa: F841 (needed for image loading)
     report: dict = {"frozen": bundle.is_frozen(), "bundle": str(bundle.app_bundle_path() or ""), "problems": []}
+    report.update(bundle.runtime_arch())
     for module in ("PySide6.QtWidgets", "PySide6.QtSvg", "psutil", "objc", "Foundation", "AppKit", "Quartz",
                    "ScreenCaptureKit", "ApplicationServices", "UserNotifications", "mcmanager.mock.fake_client"):
         try:
@@ -201,6 +202,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if bundle.is_frozen():
         log.info("Running packaged from %s", bundle.app_bundle_path())
+    log.info("CPU architecture: %(machine)s (Rosetta: %(rosetta)s)", bundle.runtime_arch())
 
     from PySide6.QtCore import QTimer
     from PySide6.QtWidgets import QApplication, QMessageBox

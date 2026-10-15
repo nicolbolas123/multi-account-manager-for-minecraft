@@ -1,0 +1,26 @@
+# Exact versions used for release builds (both architectures), applied by requirements-build.txt.
+# Every package here ships macOS wheels for both arm64 and x86_64:
+#   PySide6/shiboken6 and PyObjC as universal2 wheels, psutil as separate arm64 / x86_64 wheels.
+# Before raising a version, check that it still publishes x86_64 macOS wheels (Qt and PyObjC may
+# drop Intel support in future releases), then build and test both architectures (docs/DISTRIBUTING.md).
+PySide6-Essentials==6.12.0
+shiboken6==6.12.0
+psutil==7.2.2
+pyobjc-core==12.2.2
+pyobjc-framework-ApplicationServices==12.2.2
+pyobjc-framework-Cocoa==12.2.2
+pyobjc-framework-CoreMedia==12.2.2
+pyobjc-framework-CoreText==12.2.2
+pyobjc-framework-Quartz==12.2.2
+pyobjc-framework-ScreenCaptureKit==12.2.2
+pyobjc-framework-UserNotifications==12.2.2
+pyinstaller==6.22.3
+pyinstaller-hooks-contrib==2026.8
+altgraph==0.17.5
+macholib==1.16.4
+packaging==26.3
+setuptools==84.0.0
+pytest==9.1.1
+iniconfig==2.3.1
+pluggy==1.6.0
+Pygments==2.21.0

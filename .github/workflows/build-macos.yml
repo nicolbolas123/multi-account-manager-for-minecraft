@@ -1,0 +1,51 @@
+# Builds the app for Apple silicon and Intel, each on a native GitHub-hosted runner, runs the
+# tests and the bundle checks, and uploads the release zips as workflow artifacts.
+# It never creates, edits or publishes a GitHub release: download the artifacts from the run's
+# summary page, test them, and attach them to a release by hand (docs/DISTRIBUTING.md).
+name: Build macOS apps
+
+on:
+  workflow_dispatch:          # "Run workflow" button on the Actions tab
+  push:
+    tags: ["v*"]              # also build when a version tag is pushed
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (${{ matrix.label }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+            label: Apple silicon
+          - runner: macos-15-intel
+            arch: x86_64
+            label: Intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"   # keep in step with docs/DISTRIBUTING.md
+
+      - name: Check that the runner is a native ${{ matrix.arch }} Mac
+        run: |
+          echo "Runner: $(uname -m), macOS $(sw_vers -productVersion), $(python3 --version)"
+          test "$(uname -m)" = "${{ matrix.arch }}"
+
+      - name: Build, test and verify
+        run: packaging/build_app.sh --arch ${{ matrix.arch }}
+
+      - name: Package release zip
+        run: packaging/make_release.sh dist/${{ matrix.arch }}/*.app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macOS-${{ matrix.arch }}
+          path: dist/release/*
+          if-no-files-found: error

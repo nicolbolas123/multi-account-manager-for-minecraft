@@ -50,6 +50,25 @@ def app_bundle_path() -> Path | None:
     return None
 
 
+def runtime_arch() -> dict:
+    """CPU architecture this process runs as, and whether Rosetta 2 translates it (for logs/self-check).
+
+    The app has separate Apple silicon (arm64) and Intel (x86_64) builds; an Intel build on an
+    Apple silicon Mac runs under Rosetta, which works but is slower.
+    """
+    import platform
+    import subprocess
+
+    translated = None
+    try:
+        out = subprocess.run(["/usr/sbin/sysctl", "-n", "sysctl.proc_translated"],
+                             capture_output=True, text=True, timeout=2).stdout.strip()
+        translated = out == "1" if out in ("0", "1") else False  # key is missing on Intel Macs
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return {"machine": platform.machine(), "rosetta": translated}
+
+
 def external_env() -> dict[str, str]:
     """Environment for launching *other* programs (Prism, osascript): ours minus private variables."""
     env = {k: v for k, v in os.environ.items() if not k.startswith(_PRIVATE_ENV_PREFIXES)}

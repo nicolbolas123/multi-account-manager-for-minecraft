@@ -9,6 +9,11 @@ init = (ROOT / "mcmanager" / "__init__.py").read_text()
 APP_NAME = re.search(r'APP_NAME = "([^"]+)"', init).group(1)
 BUNDLE_ID = re.search(r'APP_BUNDLE_ID = "([^"]+)"', init).group(1)
 VERSION = re.search(r'__version__ = "([^"]+)"', init).group(1)
+# One architecture per build (arm64 or x86_64), set by build_app.sh. PyInstaller then thins
+# universal libraries to it and refuses any binary that lacks it (e.g. a wrong psutil wheel).
+TARGET_ARCH = os.environ.get("MCM_TARGET_ARCH") or None
+# Oldest macOS the bundled Qt (PySide6 6.12, wheel tag macosx_14_0) supports.
+MIN_MACOS = "14.0"
 
 # License texts shipped inside the app (Contents/Resources/licenses), see THIRD_PARTY_NOTICES.md.
 def _license_datas():
@@ -54,7 +59,7 @@ exe = EXE(  # noqa: F821
     name=APP_NAME,
     console=False,  # no Terminal window
     argv_emulation=False,
-    target_arch=None,  # the architecture of the Python used to build (this Mac's)
+    target_arch=TARGET_ARCH,  # None = the architecture the build runs under
     codesign_identity=None,  # ad-hoc signature (no Apple Developer account needed)
     entitlements_file=None,
 )
@@ -71,7 +76,8 @@ app = BUNDLE(  # noqa: F821
         "CFBundleDisplayName": APP_NAME,
         "CFBundleShortVersionString": VERSION,
         "CFBundleVersion": VERSION,
-        "LSMinimumSystemVersion": "13.0",
+        "LSMinimumSystemVersion": MIN_MACOS,
+        "MCMBuildArch": TARGET_ARCH or os.uname().machine,  # checked by verify_bundle.py
         "LSApplicationCategoryType": "public.app-category.utilities",
         "NSHighResolutionCapable": True,
         "NSRequiresAquaSystemAppearance": False,

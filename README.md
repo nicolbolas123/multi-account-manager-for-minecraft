@@ -38,8 +38,8 @@ so you can play it with your normal mouse and keyboard.
 
 | | |
 |---|---|
-| macOS | 13 Ventura or later declared; **tested on macOS 15.3 (Apple silicon)**. Live previews use ScreenCaptureKit on macOS 14+, a legacy capture method on 13. |
-| Mac | **Apple silicon** for the packaged app (see [Architecture](#supported-architectures)). |
+| macOS | **14 Sonoma or later** for the packaged app (its Qt version needs 14). Tested on macOS 15.3. From source, macOS 13 can work with an older PySide6 (previews then use a legacy capture method). |
+| Mac | **Apple silicon** (M1 and newer) or **Intel**: there is a separate download for each, see [Which download?](#which-download). The Intel build has so far only been tested under Rosetta 2, not on a real Intel Mac. |
 | Prism Launcher | Installed (preferably in `/Applications`), with at least one instance and a signed-in Microsoft account. Tested with Prism Launcher 11.1.1. |
 | From source only | Python 3.11+ from [python.org](https://www.python.org/downloads/macos/) (tested with 3.14). |
 
@@ -55,8 +55,27 @@ There are three ways to run it:
 
 ### A. Prebuilt app
 
-When a release is published, download the DMG or zip from the [Releases page](https://github.com/nicolbolas123/multi-account-manager-for-minecraft/releases),
-drag **Multi-Account Manager for Minecraft** to Applications and open it.
+#### Which download?
+
+Check **Apple menu › About This Mac**: *Chip: Apple M…* means Apple silicon; *Processor: Intel…* means Intel.
+
+| Your Mac | Download from [Releases](https://github.com/nicolbolas123/multi-account-manager-for-minecraft/releases) |
+|---|---|
+| **Apple silicon** (M1, M2, M3, M4… chips) | `Multi-Account-Manager-for-Minecraft-<version>-macOS-AppleSilicon.zip` |
+| **Intel** (Macs that can run macOS 14 Sonoma: generally 2018 or newer, iMac 2019 or newer) | `Multi-Account-Manager-for-Minecraft-<version>-macOS-Intel.zip` |
+
+Both need macOS 14 Sonoma or later. The Intel build also opens on Apple silicon (through Rosetta
+2), but slower; use the Apple silicon download there. Release v0.1.0 has an Apple silicon
+download only (named `…-arm64.zip`).
+
+#### Installing
+
+1. Download the zip for your Mac. Optionally compare its checksum with the one on the release
+   page: `shasum -a 256 ~/Downloads/<file>.zip`.
+2. Double-click the zip and drag **Multi-Account Manager for Minecraft** to Applications.
+3. Open it (see the next paragraph the first time), then grant the
+   [permissions](#permissions) it asks for: Screen Recording for previews, and optionally
+   Accessibility and Notifications.
 
 Release builds are **not signed with an Apple Developer ID and not notarized** (yet), so macOS
 blocks the first launch with *"Apple could not verify … is free of malware"*. To open it anyway:
@@ -80,22 +99,42 @@ cd multi-account-manager-for-minecraft
 
 ### C. Build the app yourself
 
+Requires Python 3.11+ from [python.org](https://www.python.org/downloads/macos/) (its
+"universal2" installer; release builds use 3.14) and the Xcode command-line tools
+(`xcode-select --install`).
+
 ```bash
-packaging/setup_signing.sh           # once per Mac (optional but recommended, see below)
-packaging/build_app.sh               # runs the tests, builds and verifies
-packaging/build_app.sh --skip-tests  # faster rebuild
-packaging/build_app.sh --check       # is dist/ up to date with the source?
+packaging/setup_signing.sh             # once per Mac (optional but recommended, see below)
+packaging/build_app.sh                 # this Mac's architecture -> dist/Multi-Account Manager for Minecraft.app
+packaging/build_app.sh --arch arm64    # Apple silicon -> dist/arm64/…app
+packaging/build_app.sh --arch x86_64   # Intel         -> dist/x86_64/…app
+packaging/build_app.sh --skip-tests    # faster rebuild
+packaging/build_app.sh --check         # is the app up to date with the source? (add --arch to check that one)
 ```
 
-The result is **`dist/Multi-Account Manager for Minecraft.app`**: open it from Finder, or copy it to
-/Applications. Quit the app before rebuilding.
+Open the result from Finder, or copy it to /Applications. Quit the app before rebuilding it.
 
-What the build does: it creates its own environment (`build/venv`, work files in
-`build/pyinstaller`), installs `packaging/requirements-build.txt`, runs the test suite, builds with
-PyInstaller (`packaging/mcmanager.spec`), signs the app, and then verifies it: bundle identity,
-signature, the app's own `--self-check` (every dependency and resource loads from inside the
+| Building on | arm64 (Apple silicon) | x86_64 (Intel) |
+|---|---|---|
+| Apple silicon Mac | native | under **Rosetta 2** (`softwareupdate --install-rosetta`); tests and checks run as x86_64 |
+| Intel Mac | not possible (an Intel Mac can't run the tests or the app) | native |
+
+The script stops with an explanation if the Mac or the Python can't build the requested
+architecture (for example Homebrew's arm64-only Python, or Rosetta 2 missing).
+
+What the build does: it creates an environment per architecture (`build/venv-<arch>`, work files
+in `build/pyinstaller-<arch>`), installs the pinned versions in `packaging/constraints.txt`, runs
+the test suite as that architecture, builds with PyInstaller (`packaging/mcmanager.spec`), signs
+the app, and then verifies it: every executable and library has the right architecture and links
+only to the bundle or macOS (`packaging/verify_bundle.py`), bundle identity, signature, the app's
+own `--self-check` run as that architecture (every dependency and resource loads from inside the
 bundle), included license files, and a fingerprint of the source it was built from. It never reads
 or writes your app data.
+
+**Release zips**: `packaging/make_release.sh dist/<arch>/*.app` writes
+`dist/release/…-macOS-AppleSilicon.zip` or `…-macOS-Intel.zip` plus a `.sha256` file. The
+[Build macOS apps](.github/workflows/build-macos.yml) GitHub Actions workflow builds both on
+native Apple silicon and Intel runners. See [docs/DISTRIBUTING.md](docs/DISTRIBUTING.md).
 
 **Signing for your own Mac.** `packaging/setup_signing.sh` creates a self-signed certificate,
 "Minecraft Manager Local Signing", in your login keychain (free, valid 10 years, usable only by
@@ -188,8 +227,9 @@ them to an issue.
 
 ## Known limitations
 
-- **Apple silicon only** for the packaged app; Intel and universal builds are not produced or
-  tested yet (see below).
+- **The Intel build hasn't been tested on a real Intel Mac yet**, only under Rosetta 2 on Apple
+  silicon (see below). Reports from Intel users are very welcome.
+- **macOS 14 Sonoma or later** for the packaged app.
 - **No Developer ID signature or notarization** yet, so downloaded builds need Open Anyway.
 - **No input forwarding** into previews; macOS has no reliable, supported way to send input to one
   specific background window. Use Bring to Front.
@@ -205,10 +245,16 @@ them to an issue.
 
 ### Supported architectures
 
-The packaged app is built for the architecture of the Mac that builds it; published builds so far
-are **arm64 (Apple silicon) only**. Python, Qt/PySide6 and PyObjC are already universal; the
-remaining blocker for a universal (Intel + Apple silicon) build is psutil, which publishes separate
-Intel and Apple silicon wheels. Details and options: [docs/DISTRIBUTING.md](docs/DISTRIBUTING.md).
+There are two separate builds, each containing only its own architecture:
+
+| Build | Runs on | Status |
+|---|---|---|
+| **Apple silicon** (arm64) | M1 and newer, macOS 14+ | Built natively and tested with real Minecraft |
+| **Intel** (x86_64) | Intel Macs with macOS 14+ | Built and tested under Rosetta 2 (all binaries checked, tests and mock mode pass); **not yet run on a real Intel Mac** |
+
+There is no universal build: psutil publishes separate Intel and Apple silicon packages, so a
+universal app would need hand-merged libraries and would be twice the download. Details:
+[docs/DISTRIBUTING.md](docs/DISTRIBUTING.md).
 
 ## Development
 
