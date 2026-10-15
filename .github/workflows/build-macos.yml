@@ -27,9 +27,9 @@ jobs:
             label: Intel
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.1.0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.14"   # keep in step with docs/DISTRIBUTING.md
 
@@ -44,8 +44,26 @@ jobs:
       - name: Package release zip
         run: packaging/make_release.sh dist/${{ matrix.arch }}/*.app
 
-      - uses: actions/upload-artifact@v4
+      # GitHub's artifact storage occasionally times out (seen on the first v0.2.0 run, after the
+      # build and every check had passed), so a failed upload is retried once after a pause.
+      - name: Upload release zip
+        id: upload
+        continue-on-error: true
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: macOS-${{ matrix.arch }}
           path: dist/release/*
           if-no-files-found: error
+
+      - name: Wait before retrying the upload
+        if: steps.upload.outcome == 'failure'
+        run: sleep 60
+
+      - name: Upload release zip (retry)
+        if: steps.upload.outcome == 'failure'
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: macOS-${{ matrix.arch }}
+          path: dist/release/*
+          if-no-files-found: error
+          overwrite: true
