@@ -475,9 +475,17 @@ class MainWindow(QMainWindow):
         paused = self.pause_btn.isChecked()
         full = {self.pause_btn: "Resume Previews" if paused else "Pause Previews", self.add_btn: "+ Add Account"}
         short = {self.pause_btn: "Resume" if paused else "Pause", self.add_btn: "+ Add"}
+        layout = self._header.layout()
+        # The window can't get narrower than the header with short labels, so no button text is
+        # ever clipped, whatever the font (Windows' Segoe UI is wider than macOS's SF).
+        for b, text in short.items():
+            b.setText(text)
+        layout.invalidate()
+        narrowest = layout.minimumSize().width()
+        if self._header.minimumWidth() != narrowest:
+            self._header.setMinimumWidth(narrowest)
         for b, text in full.items():
             b.setText(text)
-        layout = self._header.layout()
         layout.invalidate()
         if layout.minimumSize().width() > self._header.width():
             for b, text in short.items():

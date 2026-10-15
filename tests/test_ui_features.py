@@ -273,7 +273,7 @@ def test_bulk_bar_texts_are_not_clipped(ui, qapp):
         assert widget.width() >= widget.sizeHint().width(), widget
 
 
-@pytest.mark.parametrize("width", [1040, 1280])
+@pytest.mark.parametrize("width", [700, 1040, 1280])  # 700: narrower than the header allows
 def test_header_items_do_not_overlap(ui, qapp, width):
     w, m, _ = ui
     w.resize(width, 800)
