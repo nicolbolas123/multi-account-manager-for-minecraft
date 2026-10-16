@@ -76,7 +76,7 @@ class GroupSection(QFrame):
         root.setContentsMargins(SECTION_PAD, SECTION_PAD, SECTION_PAD, SECTION_PAD)
         root.setSpacing(10)
 
-        self.header = QWidget()
+        self.header = QWidget(self)  # parented now: a parentless widget shown early is a window
         head = QHBoxLayout(self.header)
         head.setContentsMargins(0, 0, 0, 0)
         head.setSpacing(6)
@@ -96,7 +96,7 @@ class GroupSection(QFrame):
         self.count = QLabel()
         self.count.setObjectName("GroupCount")
         head.addWidget(self.count)
-        self.pin = QLabel("📌 Pinned")
+        self.pin = QLabel("📌 Pinned", self.header)
         self.pin.setObjectName("GroupPinned")
         self.pin.setToolTip("Pinned groups stay at the top. Right-click the group to unpin it.")
         self.pin.setVisible(pinned)
@@ -110,14 +110,14 @@ class GroupSection(QFrame):
         self.header.setVisible(show_header)
         root.addWidget(self.header)
 
-        self.flow = QWidget()
+        self.flow = QWidget(self)
         self.grid = QGridLayout(self.flow)
         self.grid.setContentsMargins(0, 0, 0, 0)
         self.grid.setSpacing(CARD_SPACING)
         self.grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         root.addWidget(self.flow)
 
-        self.placeholder = QLabel("Drag accounts here" if group else "Drag an account here to take it out of its group")
+        self.placeholder = QLabel("Drag accounts here" if group else "Drag an account here to take it out of its group", self)
         self.placeholder.setObjectName("GroupEmpty")
         self.placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         root.addWidget(self.placeholder)

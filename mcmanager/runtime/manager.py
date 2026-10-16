@@ -19,6 +19,7 @@ entry that owns its instance.
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -63,6 +64,9 @@ class PrismLaunchBackend:
         spawn_prism(build_show_command(install, instance_id))
 
 
+PRISM_CHECK_INTERVAL_MS = 3000
+
+
 class InstanceManager(QObject):
     entries_changed = Signal()  # entries added/removed/reordered
     entry_updated = Signal(str)  # entry config or runtime changed
@@ -95,14 +99,20 @@ class InstanceManager(QObject):
         self.playtime = playtime or PlaytimeTracker(store.path.with_name("playtime.json"))
         self.queue = LaunchQueue(self)
         self.queue.batch_finished.connect(self._on_batch_finished)
+        self._prism_fingerprint: tuple | None = None
+        # Instances and accounts added, renamed or removed in Prism while this app runs show up
+        # without a restart: a cheap check of Prism's files, reloading only when they changed.
+        self._prism_timer = QTimer(self, interval=PRISM_CHECK_INTERVAL_MS, timeout=self.refresh_prism_if_changed)
         self._sync_groups()
         self.refresh_prism()
 
     # ----------------------------------------------------------------- lifecycle
     def start(self) -> None:
         self.poller.start()
+        self._prism_timer.start()
 
     def shutdown(self) -> None:
+        self._prism_timer.stop()
         self.poller.stop()
         self.playtime.flush(force=True)  # games keep running; their sessions continue next time
         self._executor.shutdown(wait=False, cancel_futures=True)
@@ -111,12 +121,42 @@ class InstanceManager(QObject):
     def refresh_prism(self, relocate: bool = False) -> None:
         if relocate and self._locate:
             self.install = self._locate(self.settings.prism_app_path, self.settings.prism_data_dir)
+        self._prism_fingerprint = self._prism_files_fingerprint()
         self.instances = {i.id: i for i in list_instances(self.install.instances_dir)}
         self.accounts = list_accounts(self.install.data_dir)
         self._update_watch_dirs()
         self.prism_changed.emit()
         for entry in self.settings.entries:
             self.entry_updated.emit(entry.id)
+
+    def _prism_files_fingerprint(self) -> tuple:
+        """Sizes and modification times of the Prism files the instance and account lists come from."""
+        def stamp(path: Path):
+            try:
+                st = path.stat()
+                return st.st_mtime_ns, st.st_size
+            except OSError:
+                return None
+
+        instances_dir = self.install.instances_dir
+        cfgs = []
+        try:
+            with os.scandir(instances_dir) as it:
+                for child in it:
+                    if child.is_dir():
+                        cfgs.append((child.name, stamp(Path(child.path) / "instance.cfg")))
+        except OSError:
+            pass
+        return (stamp(self.install.data_dir / "accounts.json"), stamp(instances_dir / "instgroups.json"),
+                tuple(sorted(cfgs)))
+
+    def refresh_prism_if_changed(self) -> bool:
+        """Reload Prism's instances and accounts if its files changed. Returns True if reloaded."""
+        if self._prism_files_fingerprint() == self._prism_fingerprint:
+            return False
+        log.info("Prism instances or accounts changed; reloading")
+        self.refresh_prism()
+        return True
 
     def instance_for(self, entry: DashboardEntry) -> PrismInstance | None:
         return self.instances.get(entry.prism_instance_id)

@@ -116,6 +116,13 @@ $info = (Get-Item $Exe).VersionInfo
 if ($info.ProductName -ne $AppName -or $info.ProductVersion -ne $Version) { Fail "version info is '$($info.ProductName) $($info.ProductVersion)', expected '$AppName $Version'." }
 Note "Version info: $($info.ProductName) $($info.ProductVersion)"
 
+Add-Type -AssemblyName System.Drawing
+$exeIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($Exe)
+if (-not $exeIcon -or $exeIcon.Width -lt 16) { Fail 'the .exe has no usable icon.' }
+$shell32 = Add-Type -PassThru -Name IconCount -Namespace McmBuild -MemberDefinition '[DllImport("shell32.dll", CharSet = CharSet.Unicode)] public static extern uint ExtractIconExW(string file, int index, System.IntPtr[] large, System.IntPtr[] small, uint count);'
+if ($shell32::ExtractIconExW($Exe, -1, $null, $null, 0) -lt 1) { Fail 'the .exe contains no icon resource.' }
+Note 'Icon: embedded in the .exe'
+
 $report = & $ConsoleExe --self-check 2>$null
 $code = $LASTEXITCODE
 $json = $null
@@ -147,6 +154,7 @@ if (-not $SkipSmokeTest) {
         'Launch queue finished: 4 started' = 'staggered launch of 4 fake games';
         'Mock Crashy: process' = 'game process tracking';
         '-> Crashed' = 'crash detection';
+        'Window icon: small set, big set' = 'taskbar and title bar icon';
         'Closing dashboard' = 'clean shutdown'
     }
     foreach ($k in $expect.Keys) {

@@ -7,6 +7,7 @@ import logging
 from PySide6.QtCore import QEvent, Qt, QTimer, QUrl
 from PySide6.QtGui import QCursor, QDesktopServices, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
+    QCheckBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -107,7 +108,7 @@ class MainWindow(QMainWindow):
         manager.entries_changed.connect(self.rebuild_grid)
         manager.entry_updated.connect(self.refresh_entry)
         manager.notice.connect(self.toasts.show_message)
-        manager.prism_changed.connect(self.refresh_banners)
+        manager.prism_changed.connect(self._on_prism_changed)
         previews.preview_updated.connect(self.refresh_entry)
         previews.permission_problem_changed.connect(lambda _v: self.refresh_banners())
         manager.queue.changed.connect(self._on_queue_changed)
@@ -334,9 +335,11 @@ class MainWindow(QMainWindow):
             for card in cards:
                 card.setFixedWidth(m.settings.tile_width)
             section.set_cards(cards, cols, len(members))
+            # Into the window first: showing a widget that has no parent yet opens it as a
+            # separate top-level window for a moment (a visible flash on Windows).
+            self.sections_box.addWidget(section)
             # The ungrouped section only shows when it has cards, or as a drop target while dragging.
             section.setVisible(bool(name) or bool(visible))
-            self.sections_box.addWidget(section)
             self.sections.append(section)
         for entry in m.entries:
             self.refresh_entry(entry.id)
@@ -650,7 +653,7 @@ class MainWindow(QMainWindow):
             return
         verb = "Stop" if action == "stop" else "Restart"
         n = len(running)
-        if self._confirm(f"{verb} {n} account{'s' if n != 1 else ''}?",
+        if self._confirm_stop(f"{verb} {n} account{'s' if n != 1 else ''}?",
                          f"Affected: {self._names(running)}.\n\nEach game is asked to close normally."
                          + ("" if action == "stop" else " It is launched again once it has closed.")):
             (m.stop_many if action == "stop" else m.restart_many)(running)
@@ -696,7 +699,7 @@ class MainWindow(QMainWindow):
         elif action == "restart":
             m.restart(entry_id)
         elif action == "force_quit":
-            if self._confirm(f"Force quit “{entry.display_name}”?",
+            if self._confirm_stop(f"Force quit “{entry.display_name}”?",
                              "The game is killed immediately. Unsaved singleplayer progress may be lost."):
                 m.force_quit(entry_id)
         elif action == "focus":
@@ -709,6 +712,7 @@ class MainWindow(QMainWindow):
                 entry.display_name = name.strip()
                 m.update_entry(entry)
         elif action == "edit":
+            m.refresh_prism_if_changed()
             dlg = EntryDialog(m, entry, self)
             if dlg.exec():
                 m.update_entry(entry)
@@ -741,20 +745,44 @@ class MainWindow(QMainWindow):
                 self.show_grid()
                 m.remove_entry(entry_id)
 
-    def _confirm(self, title: str, text: str) -> bool:
+    def _ask(self, title: str, text: str, dont_ask_again: bool = False) -> tuple[bool, bool]:
+        """Warning dialog with Continue/Cancel. Returns (continue, "Don't ask again" ticked)."""
         box = QMessageBox(QMessageBox.Icon.Warning, title, title, QMessageBox.StandardButton.Cancel, self)
         box.setInformativeText(text)
         ok = box.addButton("Continue", QMessageBox.ButtonRole.AcceptRole)
+        if dont_ask_again:
+            box.setCheckBox(QCheckBox("Don't ask again"))
         box.exec()
-        return box.clickedButton() is ok
+        return box.clickedButton() is ok, bool(box.checkBox() and box.checkBox().isChecked())
+
+    def _confirm(self, title: str, text: str) -> bool:
+        return self._ask(title, text)[0]
+
+    def _confirm_stop(self, title: str, text: str) -> bool:
+        """Confirmation for ending games; skipped when turned off (here or in Settings › General)."""
+        settings = self.manager.settings
+        if not settings.confirm_stop:
+            return True
+        ok, dont_ask = self._ask(title, text, dont_ask_again=True)
+        if ok and dont_ask:
+            settings.confirm_stop = False
+            self.manager.save()
+            self.toasts.show_message("info", "Won't ask again. Turn it back on in Settings › General.")
+        return ok
 
     def stop_all(self) -> None:
         running = [e for e in self.manager.entries if self.manager.info(e.id).state == RunState.RUNNING]
-        if running and self._confirm(f"Stop {len(running)} running instance{'s' if len(running) != 1 else ''}?",
+        if running and self._confirm_stop(f"Stop {len(running)} running instance{'s' if len(running) != 1 else ''}?",
                                      "Each game is asked to close normally."):
             self.manager.stop_all()
 
+    def _on_prism_changed(self) -> None:
+        self.refresh_banners()
+        if not self.manager.entries:
+            self._update_empty_state()  # "Found N Prism instances"
+
     def add_entry(self) -> None:
+        self.manager.refresh_prism_if_changed()  # don't wait for the next periodic check
         dlg = EntryDialog(self.manager, None, self)
         if dlg.exec() and dlg.result_entry:
             self.manager.add_entry(dlg.result_entry)
@@ -762,6 +790,7 @@ class MainWindow(QMainWindow):
             self.refresh_entry(dlg.result_entry.id)
 
     def import_all(self) -> None:
+        self.manager.refresh_prism_if_changed()
         n = self.manager.import_all_instances()
         self.toasts.show_message("info", f"Added {n} instance{'s' if n != 1 else ''}. Rename them from each tile’s ⋯ menu.")
 

@@ -145,3 +145,37 @@ def test_group_menu_pin_and_move(window, qapp):
     act("Old", "Unpin from Top").trigger()
     act("Old", "Move Down").trigger()
     assert [g.name for g in m.groups] == ["New", "Old"]
+
+
+def test_moving_tiles_never_opens_a_separate_window(window, qapp):
+    """Rebuilding the grid must not show any widget as its own top-level window, even briefly
+    (on Windows that flashed a blank window every time a tile was moved)."""
+    from PySide6.QtCore import QEvent, QObject
+
+    w, m = window
+    shown = []
+
+    class Spy(QObject):
+        def eventFilter(self, obj, event):
+            if event.type() == QEvent.Type.Show and obj.isWidgetType() and obj.isWindow() and obj is not w:
+                shown.append(f"{type(obj).__name__} {obj.objectName()!r}")
+            return False
+
+    spy = Spy()
+    qapp.installEventFilter(spy)
+    try:
+        a, b, c = m.entries
+        m.add_group("Farm")
+        qapp.processEvents()
+        drop(section(w, "Farm"), c.id, section(w, "Farm").placeholder.geometry().center())
+        qapp.processEvents()
+        m.move_entry(a.id, "", None)
+        m.move_entries([b.id, c.id], "Farm", None)
+        m.set_group_pinned("Farm", True)
+        m.set_group_collapsed("Farm", True)
+        m.set_group_collapsed("Farm", False)
+        w.rebuild_grid()
+        qapp.processEvents()
+    finally:
+        qapp.removeEventFilter(spy)
+    assert shown == []

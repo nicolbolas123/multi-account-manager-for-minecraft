@@ -104,6 +104,7 @@ class AppSettings:
     prism_data_dir: str | None = None  # override for Prism's data directory
     tile_width: int = 360
     favorites_first: bool = False  # show favorite accounts at the front of their group
+    confirm_stop: bool = True  # ask before Force Quit, Stop All and stopping/restarting a selection
     launch_timeout_s: int = 240
     staggered_launch: bool = False  # launch multi-account requests one after another
     launch_delay_s: int = 20  # minimum gap between staggered launch attempts

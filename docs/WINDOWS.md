@@ -1,9 +1,11 @@
 # Windows (experimental preview)
 
 > **Status: experimental.** The Windows version is built and tested automatically on a GitHub
-> Windows runner (unit tests, the real Win32 window API, and the packaged app in mock mode), but
-> it has **not yet been tested on a real Windows PC with Prism Launcher and Minecraft**. Expect
-> bugs. Please report what works and what doesn't (see [Reporting problems](#reporting-problems)).
+> Windows runner (unit tests, the real Win32 window API, and the packaged app in mock mode). The
+> first preview was tried on one real Windows PC with Prism Launcher and Minecraft: it mostly
+> worked, and the problems found there are fixed in `0.3.0-windows-preview.2`, which still needs
+> retesting on a real PC. It isn't fully tested yet: expect bugs, and please report what works and
+> what doesn't (see [Reporting problems](#reporting-problems)).
 
 ## Requirements
 
@@ -43,7 +45,10 @@ Paste a path into File Explorer's address bar to open it. Nothing is stored in t
 | Feature | Status | Notes |
 |---|---|---|
 | Dashboard, tiles, expanded view, search, themes | ✅ Implemented | Shared Qt code; packaged app runs on the Windows runner |
-| Groups, reordering (drag & drop), pinning, favorites | ✅ Implemented | Shared code, tested on Windows |
+| Groups, reordering (drag & drop), pinning, favorites | ✅ Implemented | Shared code, tested on Windows. preview.2: moving tiles no longer flashes a blank window |
+| New Prism instances / accounts appear without restarting | ✅ Implemented (preview.2) | Prism's files are checked every 3 s and when *Add Account* opens; an open Add/Edit dialog updates its lists |
+| Option to skip stop confirmations | ✅ Implemented (preview.2) | Settings › General, or *Don't ask again* in the dialog; covers Force Quit, Stop All and bulk Stop/Restart |
+| Taskbar / window icon | ⚠️ Needs real-Windows testing (preview.2) | preview.1 showed no taskbar icon; the .exe icon now uses the classic icon format and the build checks the window has an icon |
 | Multi-selection (Ctrl/Shift-click, Ctrl+A), bulk actions | ✅ Implemented | Ctrl instead of ⌘ |
 | Staggered launches, configurable launch delay, launch queue | ✅ Implemented | Tested with mock games on Windows |
 | Play-time tracking and persistence | ✅ Implemented | Tested on Windows; saves retry if antivirus/OneDrive briefly locks the file |
@@ -157,6 +162,15 @@ is shared.
 
 Use the Windows zip from the preview release. Tick what works; for anything that doesn't, note
 what happened and attach the log (see [Reporting problems](#reporting-problems)).
+
+**0. Retest the problems found in preview.1** (preview.2 and later)
+- [ ] The taskbar button shows the app icon (also the title bar and Alt+Tab). If you pinned
+      preview.1 to the taskbar, unpin it first and pin the new one.
+- [ ] Dragging tiles around (within and between groups) never flashes a window.
+- [ ] With the dashboard open, add an account in Prism (or copy an instance): within a few seconds
+      it's in **+ Add Account**'s lists without restarting. Also with the Add dialog already open.
+- [ ] Settings › General › *Ask before stopping or force-quitting games* off: Force Quit and Stop
+      All act without asking. *Don't ask again* in the dialog does the same.
 
 **1. Download and start**
 - [ ] Download the zip; (optional) its SHA-256 matches the release notes.

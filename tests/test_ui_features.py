@@ -213,7 +213,7 @@ def test_bulk_launch_and_stop_only_selected(ui, monkeypatch):
     poll(m, {"B": gp(m, "B", pid=2), "C": gp(m, "C", pid=3)})  # B started; C runs but isn't selected
     stopped = []
     monkeypatch.setattr(m, "stop", lambda eid: stopped.append(m.entry(eid).display_name))
-    monkeypatch.setattr(w, "_confirm", lambda title, text: "“B”" in text and "“C”" not in text)
+    monkeypatch.setattr(w, "_confirm_stop", lambda title, text: "“B”" in text and "“C”" not in text)
     w.bulk_bar.update_for(m, w.selection.ordered(w._display_order))
     assert w.bulk_bar.stop_btn.isEnabled()
     w.bulk_action("stop")
@@ -440,3 +440,67 @@ def test_feedback_menu_offers_github_and_discord(ui, monkeypatch):
     assert opened == [ISSUES_URL] and ISSUES_URL.startswith("https://github.com/nicolbolas123/")
     by_text["Copy Discord username"].trigger()
     assert QApplication.clipboard().text() == "nicolbolas123"
+
+
+# ---------------------------------------------------------------- confirmations
+def test_stop_confirmation_can_be_turned_off(ui, tmp_path, monkeypatch):
+    w, m, _ = ui
+    poll(m, {"A": gp(m, "A", pid=2)})
+    a = ids_of(m, ["A"])[0]
+    killed, asked = [], []
+    monkeypatch.setattr(m, "force_quit", killed.append)
+    answer = (False, True)  # Cancel, with "Don't ask again" ticked: changes nothing
+
+    def ask(title, text, dont_ask_again=False):
+        asked.append(dont_ask_again)
+        return answer
+    monkeypatch.setattr(w, "_ask", ask)
+
+    w.handle_action(a, "force_quit")
+    assert killed == [] and asked == [True] and m.settings.confirm_stop
+    answer = (True, True)  # Continue + "Don't ask again"
+    w.handle_action(a, "force_quit")
+    assert killed == [a] and not m.settings.confirm_stop
+    assert SettingsStore(tmp_path / "s.json").load().confirm_stop is False
+    w.handle_action(a, "force_quit")  # no dialog any more
+    assert killed == [a, a] and len(asked) == 2
+    # Removing a tile still asks, whatever the setting.
+    w.handle_action(ids_of(m, ["B"])[0], "remove")
+    assert len(asked) == 3 and asked[-1] is False
+
+    from mcmanager.ui.dialogs import SettingsDialog
+    dlg = SettingsDialog(m, w)
+    assert not dlg.confirm_stop.isChecked()
+    dlg.confirm_stop.setChecked(True)
+    dlg._accept()
+    assert m.settings.confirm_stop
+
+
+# ---------------------------------------------------------------- Prism changes
+def test_prism_changes_appear_without_restart(ui, tmp_path, qapp):
+    from mcmanager.ui.dialogs import EntryDialog
+
+    w, m, _ = ui
+    assert not m.refresh_prism_if_changed()  # nothing changed
+    dlg = EntryDialog(m, None, w)
+    dlg.account.setCurrentIndex(0)
+    before = dlg.instance.count()
+
+    new = tmp_path / "instances" / "Fresh"
+    (new / "minecraft").mkdir(parents=True)
+    (new / "instance.cfg").write_text("[General]\nname=Fresh Copy\n")
+    accounts = {"accounts": [{"type": "MSA", "profile": {"name": "NewAlt"}, "active": True}]}
+    (tmp_path / "accounts.json").write_text(json.dumps(accounts))
+
+    assert m.refresh_prism_if_changed()
+    assert "Fresh" in m.instances and [a.profile_name for a in m.accounts] == ["NewAlt"]
+    assert dlg.instance.count() == before + 1 and dlg.instance.findData("Fresh") >= 0
+    assert dlg.account.findData("NewAlt") >= 0
+    assert dlg.instance.currentData() == "Fresh"  # the only instance no tile uses yet
+    assert not m.refresh_prism_if_changed()
+
+    (new / "instance.cfg").write_text("[General]\nname=Renamed In Prism\n")
+    assert m.refresh_prism_if_changed() and m.instances["Fresh"].name == "Renamed In Prism"
+    dlg.reject()
+    qapp.processEvents()
+    m.refresh_prism()  # the closed dialog no longer listens

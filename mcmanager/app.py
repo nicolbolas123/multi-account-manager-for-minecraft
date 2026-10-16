@@ -65,6 +65,12 @@ def build(args: argparse.Namespace) -> AppContext:
     from mcmanager.ui.theme import apply_theme
     from mcmanager.windows.capture import CaptureWorker, create_backend
 
+    from mcmanager import bundle
+
+    if sys.platform == "win32" and not bundle.is_frozen():  # before the first window exists
+        from mcmanager.windows import win32
+
+        win32.set_app_user_model_id(f"nicolbolas123.{APP_ID}")
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setApplicationName(APP_NAME)
     app.setOrganizationName(APP_ID)
@@ -74,8 +80,10 @@ def build(args: argparse.Namespace) -> AppContext:
     from mcmanager.bundle import asset_dir
 
     icon = asset_dir() / "app-icon.png"
-    if icon.is_file():  # Dock/window icon when run from source (the .app uses its own .icns)
+    if icon.is_file():  # window/taskbar icon on Windows; Dock icon when run from source on macOS
         app.setWindowIcon(QIcon(str(icon)))
+    else:
+        log.warning("App icon missing: %s", icon)
 
     if args.mock:
         from mcmanager.mock.environment import (
@@ -266,4 +274,11 @@ def main(argv: list[str] | None = None) -> int:
     ctx.worker.start()
     manager.start()
     window.show()
+    if sys.platform == "win32":
+        def log_icons():
+            from mcmanager.windows import win32
+
+            small, big = win32.window_icons(int(window.winId()))
+            log.info("Window icon: small %s, big %s", "set" if small else "MISSING", "set" if big else "MISSING")
+        QTimer.singleShot(500, log_icons)
     return app.exec()

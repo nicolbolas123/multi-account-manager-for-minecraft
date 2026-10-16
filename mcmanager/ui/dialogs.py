@@ -63,34 +63,14 @@ class EntryDialog(QDialog):
         form.addRow("Display name", self.name)
 
         self.instance = QComboBox()
-        for inst in sorted(manager.instances.values(), key=lambda i: i.name.lower()):
-            users = [e.display_name for e in manager.entries
-                     if e.prism_instance_id == inst.id and (entry is None or e.id != entry.id)]
-            label = inst.name + (f"  ({inst.summary})" if inst.summary else "")
-            if users:
-                label += f"  — also used by {', '.join(users)}"
-            self.instance.addItem(label, inst.id)
-        if entry and entry.prism_instance_id not in manager.instances:
-            self.instance.addItem(f"{entry.prism_instance_id} (missing in Prism)", entry.prism_instance_id)
-        if entry:
-            self.instance.setCurrentIndex(max(0, self.instance.findData(entry.prism_instance_id)))
-        else:
-            unused = manager.unused_instances()
-            if unused:
-                self.instance.setCurrentIndex(max(0, self.instance.findData(unused[0].id)))
+        self._fill_instances(entry.prism_instance_id if entry else None)
         self.instance.currentIndexChanged.connect(self._instance_changed)
+        self._instance_picked = entry is not None
+        self.instance.activated.connect(lambda _i: setattr(self, "_instance_picked", True))  # user choice only
         form.addRow("Prism instance", self.instance)
 
         self.account = QComboBox()
-        self.account.addItem("Prism's active account (default)", None)
-        for acc in manager.accounts:
-            self.account.addItem(acc.profile_name + ("  (active)" if acc.active else ""), acc.profile_name)
-        if entry and entry.account_profile:
-            idx = self.account.findData(entry.account_profile)
-            if idx < 0:
-                self.account.addItem(f"{entry.account_profile} (not found in Prism)", entry.account_profile)
-                idx = self.account.count() - 1
-            self.account.setCurrentIndex(idx)
+        self._fill_accounts(entry.account_profile if entry else None)
         form.addRow("Account", self.account)
 
         color_row = QHBoxLayout()
@@ -122,11 +102,12 @@ class EntryDialog(QDialog):
         form.addRow("", self.favorite)
         layout.addLayout(form)
 
-        if not manager.instances:
-            layout.addWidget(_hint(
-                f"No Prism instances were found in {manager.install.instances_dir}. Create an instance in "
-                "Prism Launcher (or set the data folder in Settings) first."
-            ))
+        self.no_instances = _hint(
+            f"No Prism instances were found in {manager.install.instances_dir}. Create an instance in "
+            "Prism Launcher (or set the data folder in Settings); it appears here automatically."
+        )
+        self.no_instances.setVisible(not manager.instances)
+        layout.addWidget(self.no_instances)
         layout.addWidget(_hint(
             "Display names, colours and groups are stored only by this app; they do not change Prism or "
             "Minecraft. Prism runs each instance once at a time, so to run several accounts simultaneously, "
@@ -137,6 +118,48 @@ class EntryDialog(QDialog):
         self.buttons.accepted.connect(self._accept)
         self.buttons.rejected.connect(self.reject)
         layout.addWidget(self.buttons)
+        self._instance_changed()
+        # Instances or accounts added in Prism while this dialog is open appear in the lists.
+        manager.prism_changed.connect(self._prism_changed)
+        self.finished.connect(lambda _r: manager.prism_changed.disconnect(self._prism_changed))
+
+    def _fill_instances(self, selected: str | None) -> None:
+        manager, entry = self.manager, self.entry
+        self.instance.blockSignals(True)
+        self.instance.clear()
+        for inst in sorted(manager.instances.values(), key=lambda i: i.name.lower()):
+            users = [e.display_name for e in manager.entries
+                     if e.prism_instance_id == inst.id and (entry is None or e.id != entry.id)]
+            label = inst.name + (f"  ({inst.summary})" if inst.summary else "")
+            if users:
+                label += f"  — also used by {', '.join(users)}"
+            self.instance.addItem(label, inst.id)
+        if entry and entry.prism_instance_id not in manager.instances:
+            self.instance.addItem(f"{entry.prism_instance_id} (missing in Prism)", entry.prism_instance_id)
+        if selected is None and entry is None:
+            unused = manager.unused_instances()
+            selected = unused[0].id if unused else None
+        self.instance.setCurrentIndex(max(0, self.instance.findData(selected)) if self.instance.count() else -1)
+        self.instance.blockSignals(False)
+
+    def _fill_accounts(self, selected: str | None) -> None:
+        self.account.clear()
+        self.account.addItem("Prism's active account (default)", None)
+        for acc in self.manager.accounts:
+            self.account.addItem(acc.profile_name + ("  (active)" if acc.active else ""), acc.profile_name)
+        if selected:
+            idx = self.account.findData(selected)
+            if idx < 0:
+                self.account.addItem(f"{selected} (not found in Prism)", selected)
+                idx = self.account.count() - 1
+            self.account.setCurrentIndex(idx)
+
+    def _prism_changed(self) -> None:
+        # Until the user picks an instance, a new tile defaults to one no tile uses yet (such as a
+        # copy just made in Prism for this account).
+        self._fill_instances(self.instance.currentData() if self._instance_picked else None)
+        self._fill_accounts(self.account.currentData())
+        self.no_instances.setVisible(not self.manager.instances)
         self._instance_changed()
 
     def _instance_changed(self) -> None:
@@ -225,6 +248,10 @@ class SettingsDialog(QDialog):
         self.favorites_first = toggle("Show favorites first in each group", s.favorites_first)
         df.addWidget(self.favorites_first)
         df.addWidget(_hint("When off, favorites keep their ★ but stay where you dragged them."))
+        self.confirm_stop = toggle("Ask before stopping or force-quitting games", s.confirm_stop)
+        df.addWidget(self.confirm_stop)
+        df.addWidget(_hint("Applies to Force Quit, Stop All and stopping or restarting several accounts. "
+                           "Removing a tile or deleting a group always asks."))
         lay.addWidget(dash)
         lay.addStretch(1)
         return page
@@ -512,6 +539,7 @@ class SettingsDialog(QDialog):
         s.launch_timeout_s = self.timeout.value()
         s.tile_width = self.tile_width.value()
         s.favorites_first = self.favorites_first.isChecked()
+        s.confirm_stop = self.confirm_stop.isChecked()
         s.staggered_launch = self.staggered.isChecked()
         s.launch_delay_s = self.delay.value()
         s.notifications.enabled = self.notify_master.isChecked()

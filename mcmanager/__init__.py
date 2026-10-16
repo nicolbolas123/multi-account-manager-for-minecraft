@@ -25,4 +25,4 @@ APP_BUNDLE_ID = "local.MinecraftMultiAccountManager"  # macOS bundle identifier 
 GITHUB_REPO = "nicolbolas123/multi-account-manager-for-minecraft"
 ISSUES_URL = f"https://github.com/{GITHUB_REPO}/issues"
 DISCORD_USERNAME = "nicolbolas123"
-__version__ = "0.3.0-windows-preview.1"  # macOS builds use the part before "-"
+__version__ = "0.3.0-windows-preview.2"  # macOS builds use the part before "-"

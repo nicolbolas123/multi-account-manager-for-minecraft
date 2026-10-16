@@ -103,9 +103,22 @@ def png_bytes(img: QImage) -> bytes:
     return bytes(buf.data())
 
 
+def dib_bytes(img: QImage) -> bytes:
+    """An uncompressed 32-bit icon image: BITMAPINFOHEADER, bottom-up BGRA pixels, AND mask."""
+    img = img.convertToFormat(QImage.Format.Format_ARGB32)  # little-endian memory order: B, G, R, A
+    w, h = img.width(), img.height()
+    header = struct.pack("<IiiHHIIiiII", 40, w, h * 2, 1, 32, 0, 0, 0, 0, 0, 0)  # height covers XOR + AND
+    pixels = b"".join(bytes(img.constScanLine(y))[: w * 4] for y in reversed(range(h)))
+    mask_row = ((w + 31) // 32) * 4  # 1 bit per pixel, rows padded to 32 bits; all 0 = use alpha
+    return header + pixels + bytes(mask_row * h)
+
+
 def write_ico(path: Path, images: list[QImage]) -> None:
-    """A multi-size .ico with PNG-compressed entries (supported since Windows Vista)."""
-    blobs = [png_bytes(img) for img in images]
+    """A multi-size .ico: uncompressed bitmaps below 256 px, PNG only for 256 px.
+
+    That is the layout Windows' own icons use. PNG-compressed small entries are valid since Vista
+    but some shell code paths (the taskbar among them) show a blank icon for them."""
+    blobs = [png_bytes(img) if img.width() >= 256 else dib_bytes(img) for img in images]
     out = io.BytesIO()
     out.write(struct.pack("<HHH", 0, 1, len(images)))  # reserved, type 1 = icon, count
     offset = 6 + 16 * len(images)

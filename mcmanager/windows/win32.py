@@ -44,6 +44,8 @@ WS_EX_TOOLWINDOW = 0x00000080
 SW_RESTORE = 9
 SW_SHOW = 5
 WM_CLOSE = 0x0010
+WM_GETICON = 0x007F
+ICON_SMALL, ICON_BIG = 0, 1
 DWMWA_EXTENDED_FRAME_BOUNDS = 9
 DWMWA_CLOAKED = 14
 PW_CLIENTONLY = 0x1
@@ -99,6 +101,7 @@ def _api():
     sig(user32.AttachThreadInput, wt.BOOL, wt.DWORD, wt.DWORD, wt.BOOL)
     sig(user32.PostMessageW, wt.BOOL, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM)
     sig(user32.PrintWindow, wt.BOOL, wt.HWND, wt.HDC, wt.UINT)
+    sig(user32.SendMessageW, ctypes.c_ssize_t, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM)
     sig(user32.GetDC, wt.HDC, wt.HWND)
     sig(user32.ReleaseDC, ctypes.c_int, wt.HWND, wt.HDC)
     sig(kernel32.GetCurrentThreadId, wt.DWORD)
@@ -242,6 +245,31 @@ def close_window_gracefully(pid: int):
     if not _api().user32.PostMessageW(hwnd, WM_CLOSE, 0, 0):
         return ActionResult(False, f"PostMessage failed (error {_api().ctypes.get_last_error()})")
     return ActionResult(True)
+
+
+# ---------------------------------------------------------------- taskbar
+
+def set_app_user_model_id(app_id: str) -> bool:
+    """Give this process its own taskbar identity (and so its own taskbar icon).
+
+    Only for running from source: there the process is python.exe, whose identity and icon the
+    taskbar would otherwise use. The packaged .exe keeps the identity Windows derives from its
+    path, so pinning it to the taskbar keeps working."""
+    import ctypes
+
+    try:
+        shell32 = ctypes.WinDLL("shell32")
+        fn = shell32.SetCurrentProcessExplicitAppUserModelID
+        fn.restype, fn.argtypes = ctypes.c_long, [ctypes.c_wchar_p]
+        return fn(app_id) == 0
+    except (OSError, AttributeError):
+        return False
+
+
+def window_icons(hwnd: int) -> tuple[bool, bool]:
+    """Whether a window has a (small, big) icon set: the taskbar and title bar show these."""
+    send = _api().user32.SendMessageW
+    return bool(send(hwnd, WM_GETICON, ICON_SMALL, 0)), bool(send(hwnd, WM_GETICON, ICON_BIG, 0))
 
 
 # ---------------------------------------------------------------- capture
