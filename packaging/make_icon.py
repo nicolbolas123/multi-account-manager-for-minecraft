@@ -4,7 +4,7 @@ Windows .exe) and mcmanager/ui/assets/app-icon.png.
 A dark rounded tile holding a 2x2 grid of small Minecraft-style "game windows" — one per
 account — in the dashboard's colours. Drawn with Qt so no image editor is needed; rerun after
 changing the design:  python packaging/make_icon.py
-Only the Windows icon:  python packaging/make_icon.py --ico
+Only the Windows icon:  python packaging/make_icon.py --ico  (also copied to assets/app-icon.ico)
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from PySide6.QtGui import QColor, QGuiApplication, QImage, QLinearGradient, QPai
 ROOT = Path(__file__).resolve().parent.parent
 ICNS = ROOT / "packaging" / "AppIcon.icns"
 ICO = ROOT / "packaging" / "AppIcon.ico"
+ICO_ASSET = ROOT / "mcmanager" / "ui" / "assets" / "app-icon.ico"  # the same icon, for the running app
 ICO_SIZES = (16, 20, 24, 32, 40, 48, 64, 128, 256)
 PNG = ROOT / "mcmanager" / "ui" / "assets" / "app-icon.png"
 
@@ -134,8 +135,9 @@ def write_ico(path: Path, images: list[QImage]) -> None:
 def main() -> int:
     QGuiApplication.instance() or QGuiApplication(sys.argv[:1])
     write_ico(ICO, [draw_windows(px) for px in ICO_SIZES])
+    shutil.copyfile(ICO, ICO_ASSET)
     if "--ico" in sys.argv[1:]:
-        print("wrote", ICO)
+        print("wrote", ICO, "and", ICO_ASSET)
         return 0
     big = draw(1024)
     PNG.parent.mkdir(parents=True, exist_ok=True)

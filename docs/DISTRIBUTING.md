@@ -1,9 +1,9 @@
 # Distributing the app to other Macs
 
-(Windows: see [WINDOWS.md](WINDOWS.md) for the experimental Windows build, its packaging script
-`packaging/build_windows.ps1` and the `build-windows.yml` workflow. Windows previews are released
-as GitHub *pre-releases* with tags like `v0.3.0-windows-preview.1`, which the macOS workflow
-ignores.)
+(Windows: see [WINDOWS.md](WINDOWS.md) for the Windows build, its packaging script
+`packaging/build_windows.ps1` and the `build-windows.yml` workflow. From v0.3.0 a release has
+the two macOS zips and the Windows zip; pushing a `v*` tag builds all three. Tags like
+`v0.3.0-windows-preview.1` were Windows-only test pre-releases, which the macOS workflow ignores.)
 
 ## Status
 

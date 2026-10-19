@@ -177,6 +177,9 @@ def self_check() -> int:
         path = bundle.asset_dir() / name
         if not path.is_file() or QImage(str(path)).isNull():
             report["problems"].append(f"asset not loadable: {path}")
+    ico = bundle.asset_dir() / "app-icon.ico"  # loaded by Windows itself (taskbar icon), not by Qt
+    if not ico.is_file() or ico.read_bytes()[:4] != b"\0\0\1\0":
+        report["problems"].append(f"asset missing or not an icon: {ico}")
     try:
         from Foundation import NSBundle
 
@@ -275,10 +278,17 @@ def main(argv: list[str] | None = None) -> int:
     manager.start()
     window.show()
     if sys.platform == "win32":
-        def log_icons():
+        from mcmanager.bundle import asset_dir
+
+        def fix_taskbar_icon(final: bool):
             from mcmanager.windows import win32
 
-            small, big = win32.window_icons(int(window.winId()))
-            log.info("Window icon: small %s, big %s", "set" if small else "MISSING", "set" if big else "MISSING")
-        QTimer.singleShot(500, log_icons)
+            hwnd = int(window.winId())
+            win32.set_window_icon(hwnd, str(asset_dir() / "app-icon.ico"))
+            if final:
+                small, big = win32.window_icons(hwnd)
+                log.info("Window icon: small %s, big %s", "set" if small else "MISSING", "set" if big else "MISSING")
+        # Right after the window appears, and again once startup work has settled (see set_window_icon).
+        QTimer.singleShot(0, lambda: fix_taskbar_icon(False))
+        QTimer.singleShot(2000, lambda: fix_taskbar_icon(True))
     return app.exec()

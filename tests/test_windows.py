@@ -287,6 +287,11 @@ def test_windows_icon_is_a_multi_size_ico():
     assert (reserved, kind) == (0, 1) and {16, 32, 48, 256} <= sizes
 
 
+def test_running_app_uses_the_same_icon_as_the_exe():
+    assert (ROOT / "mcmanager" / "ui" / "assets" / "app-icon.ico").read_bytes() == \
+        (ROOT / "packaging" / "AppIcon.ico").read_bytes()
+
+
 def test_windows_spec_and_build_script():
     spec = (ROOT / "packaging" / "mcmanager_windows.spec").read_text(encoding="utf-8")
     assert "console=False" in spec and "console=True" in spec  # windowed app + console diagnostics
@@ -387,3 +392,28 @@ def test_registry_lookup_is_read_only_and_safe():
     installs = locator._registry_installs()
     assert isinstance(installs, list)
     assert all(isinstance(folder, Path) for folder, _ in installs)
+
+
+_ICON_SCRIPT = textwrap.dedent("""
+    import ctypes, sys
+    from PySide6.QtWidgets import QApplication, QWidget
+    from mcmanager.bundle import asset_dir
+    from mcmanager.windows import win32
+    app = QApplication(sys.argv)
+    w = QWidget()
+    w.show()
+    app.processEvents()
+    hwnd = int(w.winId())
+    ok = win32.set_window_icon(hwnd, str(asset_dir() / "app-icon.ico"))
+    get = ctypes.WinDLL("user32").GetClassLongPtrW
+    get.restype, get.argtypes = ctypes.c_size_t, [ctypes.c_void_p, ctypes.c_int]
+    print(ok, *win32.window_icons(hwnd), bool(get(hwnd, win32.GCLP_HICON)), bool(get(hwnd, win32.GCLP_HICONSM)))
+""")
+
+
+@windows_only
+def test_win32_taskbar_icon_on_window_and_window_class():
+    env = {k: v for k, v in os.environ.items() if k.upper() != "QT_QPA_PLATFORM"}  # a real window
+    out = subprocess.run([sys.executable, "-c", _ICON_SCRIPT], env=env, cwd=ROOT, capture_output=True,
+                         text=True, timeout=60)
+    assert out.stdout.split() == ["True"] * 5, out.stderr

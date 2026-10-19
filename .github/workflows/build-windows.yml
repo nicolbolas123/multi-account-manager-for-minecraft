@@ -1,14 +1,14 @@
-# Experimental Windows build: runs the whole test suite on Windows, builds the app with
+# Windows build: runs the whole test suite on Windows, builds the app with
 # packaging/build_windows.ps1, verifies it (x64 executables, Qt plugins, self-check) and starts the
 # packaged app in mock mode as a smoke test. Uploads the release zip and the smoke test's screenshot
 # and log as workflow artifacts. It never creates, edits or publishes a GitHub release.
-name: Build Windows app (experimental)
+name: Build Windows app
 
 on:
   workflow_dispatch:             # "Run workflow" button on the Actions tab
   push:
-    branches: ["windows-support"]
-    tags: ["v*-windows*"]        # Windows preview tags, e.g. v0.3.0-windows-preview.1
+    branches: ["main", "windows-support"]
+    tags: ["v*"]                 # release tags (v0.3.0) and Windows test pre-releases (v0.3.0-windows-preview.1)
 
 permissions:
   contents: read

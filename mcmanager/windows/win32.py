@@ -45,7 +45,12 @@ SW_RESTORE = 9
 SW_SHOW = 5
 WM_CLOSE = 0x0010
 WM_GETICON = 0x007F
+WM_SETICON = 0x0080
 ICON_SMALL, ICON_BIG = 0, 1
+GCLP_HICON, GCLP_HICONSM = -14, -34
+SM_CXICON, SM_CXSMICON = 11, 49
+IMAGE_ICON = 1
+LR_LOADFROMFILE = 0x10
 DWMWA_EXTENDED_FRAME_BOUNDS = 9
 DWMWA_CLOAKED = 14
 PW_CLIENTONLY = 0x1
@@ -102,6 +107,14 @@ def _api():
     sig(user32.PostMessageW, wt.BOOL, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM)
     sig(user32.PrintWindow, wt.BOOL, wt.HWND, wt.HDC, wt.UINT)
     sig(user32.SendMessageW, ctypes.c_ssize_t, wt.HWND, wt.UINT, wt.WPARAM, wt.LPARAM)
+    sig(user32.SetClassLongPtrW, ctypes.c_size_t, wt.HWND, ctypes.c_int, ctypes.c_ssize_t)
+    sig(user32.LoadImageW, wt.HANDLE, wt.HINSTANCE, wt.LPCWSTR, wt.UINT, ctypes.c_int, ctypes.c_int, wt.UINT)
+    sig(user32.GetSystemMetrics, ctypes.c_int, ctypes.c_int)
+    try:  # Windows 10 1607+: icon sizes for the window's monitor DPI
+        sig(user32.GetDpiForWindow, wt.UINT, wt.HWND)
+        sig(user32.GetSystemMetricsForDpi, ctypes.c_int, ctypes.c_int, wt.UINT)
+    except AttributeError:
+        pass
     sig(user32.GetDC, wt.HDC, wt.HWND)
     sig(user32.ReleaseDC, ctypes.c_int, wt.HWND, wt.HDC)
     sig(kernel32.GetCurrentThreadId, wt.DWORD)
@@ -264,6 +277,49 @@ def set_app_user_model_id(app_id: str) -> bool:
         return fn(app_id) == 0
     except (OSError, AttributeError):
         return False
+
+
+_icon_handles: dict[tuple[str, int], int] = {}  # loaded once and kept: the taskbar may use them any time
+
+
+def _load_icon(api, path: str, size: int) -> int:
+    key = (path, size)
+    if key not in _icon_handles:
+        _icon_handles[key] = api.user32.LoadImageW(None, path, IMAGE_ICON, size, size, LR_LOADFROMFILE) or 0
+    return _icon_handles[key]
+
+
+def _icon_sizes(api, hwnd: int) -> tuple[int, int]:
+    user32 = api.user32
+    try:
+        dpi = user32.GetDpiForWindow(hwnd)
+        if dpi:
+            return user32.GetSystemMetricsForDpi(SM_CXICON, dpi), user32.GetSystemMetricsForDpi(SM_CXSMICON, dpi)
+    except AttributeError:
+        pass
+    return user32.GetSystemMetrics(SM_CXICON) or 32, user32.GetSystemMetrics(SM_CXSMICON) or 16
+
+
+def set_window_icon(hwnd: int, ico_path: str) -> bool:
+    """Set ``hwnd``'s taskbar/title-bar icon from an .ico file, robustly.
+
+    The taskbar asks a new window for its icon (WM_GETICON) with a short timeout. If the app is
+    still busy starting, the request times out and the taskbar falls back to the window *class*
+    icon, which Qt leaves empty (it only looks for an ``IDI_ICON1`` resource): a blank taskbar
+    button that stays blank. So the class gets the icon as well, and setting the window icon again
+    (WM_SETICON) makes the taskbar refresh its button. Call it once the app is idle."""
+    api = _api()
+    big_size, small_size = _icon_sizes(api, hwnd)
+    big, small = _load_icon(api, ico_path, big_size), _load_icon(api, ico_path, small_size)
+    if not big or not small:
+        log.warning("Could not load the window icon from %s (error %s)", ico_path, api.ctypes.get_last_error())
+        return False
+    user32 = api.user32
+    user32.SetClassLongPtrW(hwnd, GCLP_HICON, big)
+    user32.SetClassLongPtrW(hwnd, GCLP_HICONSM, small)
+    user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, big)
+    user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, small)
+    return True
 
 
 def window_icons(hwnd: int) -> tuple[bool, bool]:

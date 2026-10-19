@@ -1,7 +1,6 @@
 # Multi-Account Manager for Minecraft
 
-A macOS dashboard (with an **experimental Windows preview**) for running several Minecraft: Java
-Edition accounts at once. It launches
+A dashboard for **macOS and Windows** for running several Minecraft: Java Edition accounts at once. It launches
 your instances **through [Prism Launcher](https://prismlauncher.org)**, tracks every game
 process, shows a **live preview of each real game window**, and brings any game to the front
 so you can play it with your normal mouse and keyboard.
@@ -13,10 +12,10 @@ so you can play it with your normal mouse and keyboard.
 
 <sub>Screenshots are taken in mock mode (`--mock`), which uses simulated instances and preview images.</sub>
 
-> **Windows:** an experimental preview is available as a *Pre-release* on the Releases page. It
-> is built and tested automatically on Windows but **not yet verified with real Minecraft on a
-> Windows PC**. Installation, feature status, known issues and a testing checklist:
-> **[docs/WINDOWS.md](docs/WINDOWS.md)**. The rest of this README describes the macOS app.
+> **Windows** (new in v0.3.0, Windows 10/11 x64): download `…-Windows-x64.zip` from the
+> [Releases page](https://github.com/nicolbolas123/multi-account-manager-for-minecraft/releases).
+> Installation, feature status and known issues: **[docs/WINDOWS.md](docs/WINDOWS.md)**. The rest
+> of this README describes the macOS app.
 
 ## Features
 

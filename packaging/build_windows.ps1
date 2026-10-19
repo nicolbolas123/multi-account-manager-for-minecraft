@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Build the Windows app (experimental) into dist\windows\<APP_NAME>\.
+  Build the Windows app into dist\windows\<APP_NAME>\.
 
 .DESCRIPTION
   Run from PowerShell on 64-bit Windows 10/11, in the repository folder:

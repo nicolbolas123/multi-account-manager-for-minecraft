@@ -1,11 +1,10 @@
-# Windows (experimental preview)
+# Windows
 
-> **Status: experimental.** The Windows version is built and tested automatically on a GitHub
-> Windows runner (unit tests, the real Win32 window API, and the packaged app in mock mode). The
-> first preview was tried on one real Windows PC with Prism Launcher and Minecraft: it mostly
-> worked, and the problems found there are fixed in `0.3.0-windows-preview.2`, which still needs
-> retesting on a real PC. It isn't fully tested yet: expect bugs, and please report what works and
-> what doesn't (see [Reporting problems](#reporting-problems)).
+> **Status:** Windows support is new in **v0.3.0**. Every build is tested automatically on a
+> GitHub Windows runner (unit tests, the real Win32 window API, and the packaged app in mock
+> mode), and the test previews were tested on a real Windows PC with Prism Launcher and
+> Minecraft, where everything below marked ✅ worked. It has been tested on only one PC so far:
+> please report problems (see [Reporting problems](#reporting-problems)).
 
 ## Requirements
 
@@ -18,7 +17,7 @@
 
 1. Download `Multi-Account-Manager-for-Minecraft-<version>-Windows-x64.zip` from the
    [Releases page](https://github.com/nicolbolas123/multi-account-manager-for-minecraft/releases)
-   (Windows previews are marked *Pre-release*).
+   (use the newest release that has a `…-Windows-x64.zip`).
 2. Optional: check the download. In PowerShell:
    `Get-FileHash $HOME\Downloads\<file>.zip -Algorithm SHA256` and compare with the release notes.
 3. Right-click the zip › **Extract All…**, e.g. to `C:\Users\<you>\Apps\`. Don't run it from inside
@@ -45,10 +44,10 @@ Paste a path into File Explorer's address bar to open it. Nothing is stored in t
 | Feature | Status | Notes |
 |---|---|---|
 | Dashboard, tiles, expanded view, search, themes | ✅ Implemented | Shared Qt code; packaged app runs on the Windows runner |
-| Groups, reordering (drag & drop), pinning, favorites | ✅ Implemented | Shared code, tested on Windows. preview.2: moving tiles no longer flashes a blank window |
-| New Prism instances / accounts appear without restarting | ✅ Implemented (preview.2) | Prism's files are checked every 3 s and when *Add Account* opens; an open Add/Edit dialog updates its lists |
-| Option to skip stop confirmations | ✅ Implemented (preview.2) | Settings › General, or *Don't ask again* in the dialog; covers Force Quit, Stop All and bulk Stop/Restart |
-| Taskbar / window icon | ⚠️ Needs real-Windows testing (preview.2) | preview.1 showed no taskbar icon; the .exe icon now uses the classic icon format and the build checks the window has an icon |
+| Groups, reordering (drag & drop), pinning, favorites | ✅ Tested on a real PC | Moving tiles no longer flashes a blank window (fixed in preview.2) |
+| New Prism instances / accounts appear without restarting | ✅ Tested on a real PC | Prism's files are checked every 3 s and when *Add Account* opens; an open Add/Edit dialog updates its lists |
+| Option to skip stop confirmations | ✅ Tested on a real PC | Settings › General, or *Don't ask again* in the dialog; covers Force Quit, Stop All and bulk Stop/Restart |
+| Taskbar / window icon | ⚠️ Fix new in v0.3.0, not yet confirmed on a real PC | In the previews the taskbar icon was often blank. The window and its window class now both get the icon, and it's set again once startup has settled |
 | Multi-selection (Ctrl/Shift-click, Ctrl+A), bulk actions | ✅ Implemented | Ctrl instead of ⌘ |
 | Staggered launches, configurable launch delay, launch queue | ✅ Implemented | Tested with mock games on Windows |
 | Play-time tracking and persistence | ✅ Implemented | Tested on Windows; saves retry if antivirus/OneDrive briefly locks the file |
@@ -56,16 +55,16 @@ Paste a path into File Explorer's address bar to open it. Nothing is stored in t
 | Crash detection (crash reports, log) | ✅ Implemented | Tested with the mock "Mock Crashy" game on Windows |
 | Mock mode (`--mock`) | ✅ Implemented | Smoke-tested in the packaged app on the Windows runner |
 | One copy at a time | ✅ Implemented | |
-| Prism Launcher discovery | ⚠️ Needs real-Windows testing | Registry (installer), `%LOCALAPPDATA%\Programs\PrismLauncher`, `Program Files`, Scoop, PATH, or choose `prismlauncher.exe` / its folder in Settings; portable Prism supported |
-| Launching instances / accounts through Prism | ⚠️ Needs real-Windows testing | Same documented Prism command line as macOS; paths with spaces handled |
-| Detecting the running game (`javaw.exe`) | ⚠️ Needs real-Windows testing | Same matching as macOS, with Windows path rules (case, `\` vs `/`) |
-| Username / server from the game log | ⚠️ Needs real-Windows testing | Same log parser |
-| Live previews | ⚠️ Needs real-Windows testing | `PrintWindow` (works while covered) — verified on the runner with a Qt window, **not with Minecraft's OpenGL window**. If previews are black, switch Settings › Previews › Capture method to *Screen copy* (window must be visible) |
-| Bring to Front | ⚠️ Needs real-Windows testing | Restores minimized windows. Windows may refuse to switch focus and flash the taskbar button instead |
-| Stop (graceful) | ⚠️ Needs real-Windows testing | Sends the game window a close request (like clicking ✕) so Minecraft saves; verified on the runner with a Qt window |
-| Force Quit | ⚠️ Needs real-Windows testing | Ends the process immediately (unsaved progress is lost) |
-| Notifications | ⚠️ Needs real-Windows testing | Tray icon + Windows notifications; depends on Windows notification / Do-not-disturb settings |
-| Open game folder / crash report | ⚠️ Needs real-Windows testing | Opens File Explorer / the default text editor |
+| Prism Launcher discovery | ✅ Tested on a real PC | Registry (installer), `%LOCALAPPDATA%\Programs\PrismLauncher`, `Program Files`, Scoop, PATH, or choose `prismlauncher.exe` / its folder in Settings; portable Prism supported |
+| Launching instances / accounts through Prism | ✅ Tested on a real PC | Same documented Prism command line as macOS; paths with spaces handled |
+| Detecting the running game (`javaw.exe`) | ✅ Tested on a real PC | Same matching as macOS, with Windows path rules (case, `\` vs `/`) |
+| Username / server from the game log | ✅ Tested on a real PC | Same log parser |
+| Live previews | ✅ Tested on a real PC | `PrintWindow` (works while covered). If previews are black on your graphics driver, switch Settings › Previews › Capture method to *Screen copy* (window must be visible) |
+| Bring to Front | ✅ Tested on a real PC | Restores minimized windows. Windows may refuse to switch focus and flash the taskbar button instead |
+| Stop (graceful) | ✅ Tested on a real PC | Sends the game window a close request (like clicking ✕) so Minecraft saves |
+| Force Quit | ✅ Tested on a real PC | Ends the process immediately (unsaved progress is lost) |
+| Notifications | ✅ Tested on a real PC | Tray icon + Windows notifications; depends on Windows notification / Do-not-disturb settings |
+| Open game folder / crash report | ✅ Tested on a real PC | Opens File Explorer / the default text editor |
 | Previews of minimized windows | ❌ Not possible | Windows doesn't render minimized windows; the last frame is kept |
 | Controlling a game started *as administrator* | ❌ Not supported | Windows blocks a normal app from controlling elevated windows; don't run Prism as administrator |
 | Windows on ARM build, installer, code signing | ❌ Not yet | x64 zip only; SmartScreen warns on first start |
@@ -129,8 +128,8 @@ fake games, a simulated crash, a screenshot in `build\windows-smoke\`). Skip par
 Run from source instead: `python -m venv .venv`, `.venv\Scripts\pip install -r requirements.txt`,
 `.venv\Scripts\python -m mcmanager --mock`.
 
-The GitHub Actions workflow **Build Windows app (experimental)** runs the same script on a Windows
-runner for every push to the `windows-support` branch and for `v*-windows*` tags, and uploads the
+The GitHub Actions workflow **Build Windows app** runs the same script on a Windows runner for
+every push to `main` or `windows-support` and for `v*` tags, and uploads the
 zip and the smoke test's screenshot and log as artifacts. It never publishes a release.
 
 **Build troubleshooting:** "running scripts is disabled" → use the `powershell -ExecutionPolicy
@@ -160,12 +159,13 @@ is shared.
 
 ## Your Windows testing checklist
 
-Use the Windows zip from the preview release. Tick what works; for anything that doesn't, note
+Use the Windows zip from the release. Tick what works; for anything that doesn't, note
 what happened and attach the log (see [Reporting problems](#reporting-problems)).
 
-**0. Retest the problems found in preview.1** (preview.2 and later)
-- [ ] The taskbar button shows the app icon (also the title bar and Alt+Tab). If you pinned
-      preview.1 to the taskbar, unpin it first and pin the new one.
+**0. Retest the problems found in the previews**
+- [ ] The taskbar button shows the app icon, every time you start the app (try several starts;
+      also the title bar and Alt+Tab). If you pinned a preview to the taskbar, unpin it first and
+      pin the new one.
 - [ ] Dragging tiles around (within and between groups) never flashes a window.
 - [ ] With the dashboard open, add an account in Prism (or copy an instance): within a few seconds
       it's in **+ Add Account**'s lists without restarting. Also with the Add dialog already open.
